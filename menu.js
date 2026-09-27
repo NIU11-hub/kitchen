@@ -73,7 +73,9 @@ export function generate(key) {
     used[r.id] = (used[r.id] || 0) + 1;
     return true;
   };
-  const free = (di, k) => { const c = w.days[di][k]; return !(c && (c.lock || c.custom)); };
+  // 已经过去的日子不动，只排今天和以后
+  const past = di => addDays(key, di) < today();
+  const free = (di, k) => { if (past(di)) return false; const c = w.days[di][k]; return !(c && (c.lock || c.custom)); };
 
   const bfAll = all.filter(r => r.slot === "早餐" && perServing(r).kcal >= 350);
   const bfQuick = bfAll.filter(r => (+r.mins || 0) <= 30 || r.batch);
@@ -114,6 +116,7 @@ export function generate(key) {
   for (const di of [5, 6]) if (free(di, "l")) put(di, "l", pickFrom(all.filter(r => MAIN(r) && r.diff !== "费事" && r.id !== w.days[di].d?.r), used, lastWeek));
   // 全天热量不够时，给午饭晚饭多配米饭补上（每顿最多 450g）
   for (let di = 0; di < 7; di++) {
+    if (past(di)) continue;
     let short = DAY.kcal - dayN(w.days[di]).kcal;
     for (const k of ["d", "l"]) {
       const e = w.days[di][k], r = e && store.byId[e.r];
@@ -126,7 +129,8 @@ export function generate(key) {
 }
 
 /* ---------- 菜单页 ---------- */
-let wkSel = 0, daySel = dow(today());
+// 周六周日打开菜单，默认看下周
+let wkSel = dow(today()) >= 5 ? 1 : 0, daySel = dow(today()) >= 5 ? 0 : dow(today());
 export function mealAdvice(n, d) {
   const out = [], dk = n.kcal - DAY.kcal;
   if (Math.abs(dk) <= 120) out.push(`<span class="ok">热量合适</span>，和 2900 差 ${r0(Math.abs(dk))} kcal。`);
@@ -172,7 +176,7 @@ export function renderMenu(el) {
   el.innerHTML = `<div class="pagehead"><h1>菜单</h1>
     <div class="seg2 big">${["本周", "下周"].map((t, i) => `<button data-act="wk" data-i="${i}" aria-pressed="${wkSel === i}">${t}<small>${fmtMD(addDays(thisWeek(), 7 * i))}–${fmtMD(addDays(thisWeek(), 7 * i + 6))}</small></button>`).join("")}</div>
     <div class="acts">
-      <button class="go sm" data-act="gen">随机生成${w ? "（换掉没锁的）" : ""}</button>
+      <button class="go sm" data-act="gen">随机生成${wkSel === 0 && dow(today()) > 0 ? "（今天到周日）" : w ? "（换掉没锁的）" : ""}</button>
       ${wkSel === 1 ? `<button class="btn" data-act="copywk">复制本周过来</button>` : ""}
       ${w ? `<button class="btn" data-act="clearwk">清空这周</button>` : ""}
     </div></div>
