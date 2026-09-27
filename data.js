@@ -31,7 +31,7 @@ export const SPECIAL = {
     { name: "鸡肉卷饼 + 薯片 + 零度可乐", kcal: 620, p: 30, c: 62, f: 26 },
     { name: "鸡肉意面沙拉 + 水果杯 + 奶昔", kcal: 760, p: 34, c: 96, f: 24 },
   ] },
-  custom: { label: "自己填数字", sub: "coffee", presets: [{ name: "自己填", kcal: 600, p: 30, c: 60, f: 20 }] },
+  custom: { label: "外卖 / 其他", sub: "coffee", presets: [{ name: "自己填", kcal: 600, p: 30, c: 60, f: 20 }] },
 };
 
 // 记账分类。id 固定，采购拆账靠这些 id 对上
@@ -189,4 +189,10 @@ export const KEEP = {
   "胡萝卜": [21, "冷藏"], "芹菜": [10, "冷藏"], "西芹": [10, "冷藏"], "豆芽": [2, "冷藏，尽快吃"], "黄豆芽": [2, "冷藏，尽快吃"],
   "包菜": [14, "冷藏"], "娃娃菜": [7, "冷藏"], "柠檬": [14, "冷藏"], "希腊酸奶": [10, "冷藏"], "酸奶": [10, "冷藏"],
 };
-export const TRIPS = [{ k: "mon", name: "周一采购", day: 0 }, { k: "thu", name: "周四补货", day: 3 }];
+// 小冰箱：一周三次，每次只买两三天的量
+export const TRIPS = [
+  { k: "mon", name: "周一采购", day: 0, days: [0, 1] },
+  { k: "wed", name: "周三采购", day: 2, days: [2, 3] },
+  { k: "fri", name: "周五采购", day: 4, days: [4, 5, 6] },
+];
+export const tripOf = di => TRIPS.find(t => t.days.includes(di));

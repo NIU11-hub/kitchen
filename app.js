@@ -5,7 +5,7 @@ import { renderToday } from "./today.js";
 import { renderMenu } from "./menu.js";
 import { renderRecipes, submitRecipe } from "./recipes.js";
 import { renderShop } from "./shop.js";
-import { renderLedger, submitAdd } from "./ledger.js";
+import { renderLedger, submitAdd, migrateLedger } from "./ledger.js";
 
 const PAGES = { today: renderToday, menu: renderMenu, recipes: renderRecipes, shop: renderShop, ledger: renderLedger };
 const NAV = [["today", "今天"], ["menu", "菜单"], ["recipes", "食谱"], ["shop", "采购"], ["ledger", "记账"]];
@@ -57,8 +57,10 @@ const ICON = {
 };
 $("#nav").innerHTML = NAV.map(([k, n]) => `<a href="#${k}" data-nav="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICON[k]}</svg><span>${n}</span></a>`).join("");
 bindToast();
+document.body.insertAdjacentHTML("beforeend", `<button class="fab" data-act="openadd" aria-label="记一笔"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>记一笔</span></button>`);
 onChange(what => {
   if (what === "status") { status(); return; }
+  if (what === "ledger" || what === "all") migrateLedger();
   // 正在打字的时候别把输入框刷掉
   const ae = document.activeElement;
   if (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && ae.closest("#view") && what !== "all") return;
@@ -69,5 +71,6 @@ onChange(what => {
   fromHash();
   try { await initStore(); }
   catch (e) { console.error(e); $("#view").innerHTML = `<div class="notice bad">数据没加载出来：${e.message}</div>`; return; }
+  migrateLedger();
   status(); render();
 })();

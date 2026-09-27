@@ -4,6 +4,7 @@ import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, RICE, SPECIAL } from "./data.js";
 import { $, esc, r0, f2, money, today, addDays, mondayOf, dow, fmtMD, toast, modal } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
 import { addEntry, removeEntry } from "./ledger.js";
+import { boughtFor } from "./shop.js";
 
 export const M = () => store.docs.menu;
 const save = () => saveDoc("menu");
@@ -220,6 +221,7 @@ function mealRow(key, di, s, e) {
     <div class="num-r"><b>${r0(en.kcal)}</b> kcal · P ${r0(en.p)}</div>
     <div class="swaprow">
       <select data-chg="swap" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-label="换${s.name}">${recipeOptions(cur)}</select>
+      ${e.r && !cu && (s.k === "l" || s.k === "d") ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}
       ${(e.r || cu) ? `<button class="lock ${e.lock ? "on" : ""}" data-act="lock" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-pressed="${!!e.lock}" title="${e.lock ? "已锁定，随机生成不会换" : "锁定这一格"}">${e.lock ? "🔒" : "🔓"}</button>` : ""}
     </div>
   </div>`;
@@ -269,3 +271,50 @@ actions.payout = el => {
       markPaid(c, v, cu.kind === "custom" ? "coffee" : "party", cu.kind === "custom" ? cu.name : "聚餐 · " + cu.name); });
 };
 actions.unpay = el => { const c = cell(el); const cu = c.d[c.k].custom; if (cu?.paid) { removeEntry(cu.paid.eid); delete cu.paid; save(); ui.rerender(); toast("撤销了"); } };
+
+/* ---------- 临时改吃外面 ---------- */
+const DN = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+// 把 key 周 di 天 k 这顿的菜往后挪：同一餐次一天天往后顺，挪到空格为止
+function pushLater(key, di, k, carry) {
+  let w = key, d = di;
+  for (let i = 0; i < 14; i++) {
+    d++; if (d > 6) { d = 0; w = addDays(w, 7); }
+    const wk = week(w, true), cur = wk.days[d][k];
+    if (cur && (cur.custom || cur.lock)) continue;
+    wk.days[d][k] = { r: carry.r, rice: carry.rice || 0 };
+    if (!cur || !cur.r) return;
+    carry = { r: cur.r, rice: cur.rice };
+  }
+}
+export function eatOutModal(key, di, k) {
+  const w = week(key, true), e = w.days[di][k] || {}, r = store.byId[e.r];
+  const slot = SLOTS.find(s => s.k === k);
+  modal(`<form><div class="mhead"><p class="mt">${DN[di]}${slot.name}改吃外面</p><button type="button" class="x" data-close aria-label="关掉">×</button></div>
+    <div class="chips" id="eoKind">${[["mealdeal", "Meal Deal"], ["eatout", "聚餐"], ["custom", "外卖 / 其他"]].map(([v, n], i) => `<button type="button" class="chip2" data-kind="${v}" aria-pressed="${i === 0}">${n}</button>`).join("")}</div>
+    <label class="mtop">花了多少 £<input name="v" type="number" step="0.01" min="0" inputmode="decimal" class="num big" value="4.00"></label>
+    <label class="mtop">吃的什么（可不填）<input name="n" placeholder="比如：鸡肉三明治套餐"></label>
+    ${r ? `<p class="hint mtop">原来的「${esc(r.name)}」：${boughtFor(key, di) ? "食材已经买了，会往后挪到下一顿同一餐，不浪费。" : "食材还没买，采购清单会自动少买。"}</p>` : ""}
+    <div class="two mtop"><button type="button" class="btn" data-close>取消</button><button class="go" type="submit">记下</button></div></form>`,
+    (box, close) => {
+      let kind = "mealdeal";
+      box.querySelectorAll("[data-kind]").forEach(b => b.onclick = () => {
+        kind = b.dataset.kind; box.querySelectorAll("[data-kind]").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        if (kind === "mealdeal") box.querySelector("[name=v]").value = "4.00"; else box.querySelector("[name=v]").value = "";
+        box.querySelector("[name=v]").focus();
+      });
+      box.querySelector("form").onsubmit = ev => {
+        ev.preventDefault(); const f = ev.target, amt = parseFloat(f.v.value);
+        if (!(amt > 0)) { toast("先填花了多少"); return; }
+        const sp = SPECIAL[kind], p = sp.presets[0], nm = f.n.value.trim() || p.name;
+        const x = addEntry({ date: addDays(key, di) > today() ? today() : addDays(key, di), amount: amt, cat: "eat", sub: sp.sub, note: kind === "eatout" ? "聚餐 · " + nm : kind === "mealdeal" ? "Meal Deal" : nm, meta: { menu: `${key}/${di}/${k}` } });
+        let msg = `记下了 ${money(amt)}`;
+        if (r) {
+          if (boughtFor(key, di)) { pushLater(key, di, k, { r: e.r, rice: e.rice }); msg += `，「${r.name}」往后挪了一顿`; }
+          else msg += "，采购清单已经少买这顿的";
+        }
+        w.days[di][k] = { custom: { kind, ...p, name: nm, paid: { amt, eid: x.id } }, lock: true };
+        save(); close(); ui.rerender(); toast(msg);
+      };
+    });
+}
+actions.eatout = el => eatOutModal(el.dataset.w, +el.dataset.d, el.dataset.k);
