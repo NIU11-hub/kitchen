@@ -67,7 +67,7 @@ export function calc(month) {
   for (const x of E) {
     const a = +x.amount || 0, fl = flow(x);
     if (x.src === "cash") fc += fl; else fd += fl;
-    if (x.date.slice(0, 7) !== m) continue;
+    if (x.date.slice(0, 7) !== m || (S.start && x.date < S.start)) continue;
     if (byC[x.cat] !== undefined) { byC[x.cat] += a; const d = +x.date.slice(8); byD[d] = (byD[d] || 0) + a; }
     if (x.sub && byS[x.sub] !== undefined) byS[x.sub] += a;
   }
@@ -99,15 +99,6 @@ export function runway() {
   }
   return { date: null };
 }
-// 冰岛这类有日期的目标：到出发前生活费留够以后，还能多出多少
-export function spareFor(g) {
-  if (!g?.due) return 0;
-  const c = calc(), mb = monthlyBudget();
-  const now = parse(today()), due = parse(g.due);
-  const months = (due.getFullYear() - now.getFullYear()) * 12 + due.getMonth() - now.getMonth() + 1;
-  return Math.max(0, round2(c.remain - unpaidTotal() - Math.max(0, c.left) - mb * Math.max(0, months - 1)));
-}
-
 export function addEntry(e) {
   const E = L().E;
   const x = { id: uid("e"), date: e.date || today(), amount: round2(e.amount), cat: e.cat, sub: e.sub || "", src: e.src || "card", note: e.note || "" };
@@ -196,46 +187,64 @@ export function submitAdd(form) {
   ui.rerender();
 }
 
-/* ---------- 储蓄罐 ---------- */
+/* ---------- 储蓄罐：每个月底把没花完的存进去 ---------- */
+function monthShift(m, n) { const [y, mo] = m.split("-").map(Number); const d = new Date(y, mo - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+const mLabel = m => `${+m.slice(0, 4)} 年 ${+m.slice(5)} 月`;
+const fmtDate = s => `${+s.slice(0, 4)} 年 ${+s.slice(5, 7)} 月 ${+s.slice(8)} 日`;
+const lastDay = m => { const [y, mo] = m.split("-").map(Number); return `${m}-${String(new Date(y, mo, 0).getDate()).padStart(2, "0")}`; };
+function mainGoal() { const G = L().S.goals; return G.find(g => !g.open && (+g.s || 0) < (+g.t || 0)) || G.find(g => g.open) || G[0] || null; }
+function savedLog() { const S = L().S; S.saved = S.saved || {}; return S.saved; }
+
+function banner(text, btns) { return `<div class="banner"><span>${text}</span>${btns ? `<span class="acts">${btns}</span>` : ""}</div>`; }
+export function monthEndBanner() {
+  const t = today(), d = +t.slice(8), g = mainGoal(); if (!g) return "";
+  if (d <= 7) {
+    const m = monthShift(t.slice(0, 7), -1), st = L().S.start;
+    if (!st || m >= st.slice(0, 7)) {
+      const left = Math.max(0, calc(m).left), log = savedLog()[m];
+      if (!log && left >= 1) return banner(`${+m.slice(5)} 月省下了 <b class="num">£${f2(left)}</b>。去 Monzo 把这些钱转进储蓄罐，转完点一下。`,
+        `<button class="go sm" data-act="monthsave" data-m="${m}" data-v="${left.toFixed(2)}">已经转了</button><button class="btn" data-act="monthskip" data-m="${m}">这次不存</button>`);
+    }
+  }
+  const c = calc();
+  if (d >= c.dim - 2 && c.left > 0) return banner(`快到月底了，这个月照现在能省下 <b class="num">£${f2(c.left)}</b>，下个月 1 号提醒你存进储蓄罐。`, "");
+  return "";
+}
+actions.monthsave = el => {
+  const m = el.dataset.m, v = +el.dataset.v, g = mainGoal(); if (!g || !(v > 0)) return;
+  g.s = round2((+g.s || 0) + v);
+  const x = addEntry({ date: lastDay(m), amount: v, cat: "__save", note: `${+m.slice(5)} 月省下的`, meta: { goal: g.id, month: m } });
+  savedLog()[m] = { amt: v, eid: x.id }; save(); ui.rerender(); toast(`存进「${g.n}」£${f2(v)}`);
+};
+actions.monthskip = el => { savedLog()[el.dataset.m] = { skip: true }; save(); ui.rerender(); };
+
 export function potHtml(compact) {
-  const S = L().S, c = calc();
-  const main = S.goals.find(g => !g.open) || null;
+  const S = L().S, c = calc(), log = savedLog();
+  const hist = Object.entries(log).filter(([, v]) => v.amt).sort().slice(-6);
   let h = "";
   for (const g of S.goals) {
     const t = +g.t || 0, s = +g.s || 0, full = t > 0 && s >= t;
-    if (g.open && s <= 0 && compact) continue;
-    const pr = t > 0 ? Math.min(100, s / t * 100) : 0;
-    const spare = !g.open ? spareFor(g) : 0, need = Math.max(0, round2(t - s));
-    const mom = Math.max(0, round2(need - spare));
+    if (g.open && s <= 0) continue;
+    const pr = t > 0 ? Math.min(100, s / t * 100) : 0, need = Math.max(0, round2(t - s));
+    let plan = "";
+    if (!g.open && !full && g.due) {
+      // 出发前还有几次月底存钱：从这个月底到出发前一个月底
+      const now = parse(today()), due = parse(g.due);
+      const n = Math.max(0, (due.getFullYear() - now.getFullYear()) * 12 + due.getMonth() - now.getMonth());
+      plan = n ? `<div class="plan"><div class="hint">出发前还有 <b>${n}</b> 次月底存钱。每月省下多少，对应找妈妈要多少：</div>
+        <div class="plangrid">${[0, 30, 50, 80].map(v => `<div><span>每月省 £${v}</span><b class="num">£${Math.round(Math.max(0, need - v * n)).toLocaleString("en-GB")}</b></div>`).join("")}</div></div>` : "";
+    }
     h += `<div class="goal">
       <div class="t"><span class="nm">${esc(g.n)}</span><span class="v num"><b>£${f2(s)}</b>${t > 0 ? ` / ${f2(t)}` : ""}</span></div>
       ${t > 0 ? `<div class="pb pur"><i style="width:${pr.toFixed(0)}%"></i></div>` : ""}
-      ${g.open ? `<p class="hint">不设上限，冰岛存满以后多出来的放这里。</p>` : full ? `<p class="note ok">✓ 存够了</p>` : `
-        <ul class="gl">
-          <li>还差 <b class="num">£${f2(need)}</b></li>
-          <li>按预算留够${g.due ? ` ${+g.due.slice(5, 7)} 月前` : ""}的生活费，你手上还能挪出 <b class="num">£${f2(spare)}</b></li>
-          <li>剩下大约 <b class="num">£${f2(mom)}</b> 要找妈妈要</li>
-        </ul>`}
-      ${compact ? "" : `<div class="acts mtop">
-        ${!g.open && !full && spare > 0 ? `<button class="go sm" data-act="saveto" data-id="${g.id}" data-v="${Math.min(spare, need).toFixed(2)}">存 £${f2(Math.min(spare, need))} 进去</button>` : ""}
-        <button class="btn" data-act="saveto" data-id="${g.id}">存入</button>
-        ${s > 0 ? `<button class="btn" data-act="payfrom" data-id="${g.id}">用这里的钱付</button><button class="btn" data-act="take" data-id="${g.id}">取出来</button>` : ""}
-      </div>`}
+      ${g.open ? `<p class="hint">不设上限，冰岛存满以后多出来的放这里。</p>` : full ? `<p class="note ok">✓ 存够了</p>` : `<p class="hint">还差 <b class="num">£${f2(need)}</b></p>${compact ? "" : plan}`}
+      ${compact ? "" : `<div class="acts mtop"><button class="btn" data-act="saveto" data-id="${g.id}">手动存一笔</button>
+        ${s > 0 ? `<button class="btn" data-act="payfrom" data-id="${g.id}">用这里的钱付</button><button class="btn" data-act="take" data-id="${g.id}">取出来</button>` : ""}</div>`}
     </div>`;
   }
   return `<div class="pothead"><span>Monzo 储蓄罐 · 共 <b class="num">£${f2(c.pot)}</b></span></div>${h}
-    ${compact ? "" : `<p class="hint mtop">在 Monzo 里把钱转进 Savings pot 以后，在这里点「存入」填同样的数，手上能花的钱会跟着减少。</p>`}`;
+    ${compact ? "" : `<div class="hint mtop">${hist.length ? "存过的：" + hist.map(([m, v]) => `${+m.slice(5)} 月 +£${f2(v.amt)}`).join(" · ") : "每个月没花完的预算，下个月 1 号会提醒你转进储蓄罐。花超了的月份就不存，不用勉强。"}</div>`}`;
 }
-function monthEndBanner() {
-  const t = today(), c = calc(), dim = c.dim;
-  if (+t.slice(8) < dim - 2 || c.left <= 1) return "";
-  if (L().E.some(x => x.cat === "__save" && x.date.slice(0, 7) === c.m && x.meta?.monthEnd)) return "";
-  const g = L().S.goals.find(z => !z.open && (+z.s || 0) < (+z.t || 0)) || L().S.goals[0];
-  if (!g) return "";
-  return `<div class="banner">这个月还剩 <b class="num">£${f2(c.left)}</b> 预算没花，要存进储蓄罐吗？
-    <button class="go sm" data-act="saveto" data-id="${g.id}" data-v="${c.left.toFixed(2)}" data-me="1">存进「${esc(g.n)}」</button></div>`;
-}
-export { monthEndBanner };
 function askMoney(title, def, cb) {
   modal(`<form><p class="mt">${esc(title)}</p><input name="v" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" class="num big" value="${def || ""}">
     <div class="two mtop"><button type="button" class="btn" data-close>取消</button><button class="go" type="submit">确定</button></div></form>`,
@@ -243,10 +252,10 @@ function askMoney(title, def, cb) {
 }
 actions.saveto = el => {
   const g = goalOf(el.dataset.id); if (!g) return;
-  askMoney(`存多少进「${g.n}」？（先在 Monzo 里转进 pot）`, el.dataset.v, v => {
+  askMoney(`手动存多少进「${g.n}」？（先在 Monzo 里转进 pot）`, "", v => {
     const c = calc(); if (v > c.remain) { toast(`手上只有 £${f2(c.remain)}`); return; }
     g.s = round2((+g.s || 0) + v);
-    addEntry({ amount: v, cat: "__save", note: "存进 " + g.n, meta: { goal: g.id, monthEnd: !!el.dataset.me } });
+    addEntry({ amount: v, cat: "__save", note: "存进 " + g.n, meta: { goal: g.id } });
     ui.rerender(); toast(`存进去 £${f2(v)}`);
   });
 };
@@ -273,64 +282,90 @@ actions.payfrom = el => {
 
 /* ---------- 记账页 ---------- */
 let viewMonth = null, showSet = false, jFilter = "";
-function monthShift(m, n) { const [y, mo] = m.split("-").map(Number); const d = new Date(y, mo - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
-const mLabel = m => `${+m.slice(0, 4)} 年 ${+m.slice(5)} 月`;
-const fmtDate = s => `${+s.slice(0, 4)} 年 ${+s.slice(5, 7)} 月 ${+s.slice(8)} 日`;
+// 花钱速度：按日子今天该花到预算的几成
+function pace(c) { return c.cur ? Math.max(0, c.dn - c.st + 1) / (c.dim - c.st + 1) : 1; }
+function status(spent, budget, p) {
+  if (!(budget > 0)) return "";
+  if (spent > budget + 0.004) return "bad";
+  if (p < 1 && spent > budget * p * 1.15 + 1) return "warn";
+  return "";
+}
 
-export function heroCard(c, withNav) {
-  const st = c.left < 0 ? "bad" : (c.cur && c.spent > c.should * 1.1 ? "warn" : "");
-  const pill = c.left < 0 ? "超了" : st === "warn" ? "花得偏快" : c.cur ? "节奏正常" : "";
+// 首页和记账页共用：今天还能花多少
+export function heroCard(c) {
+  const st = status(c.spent, c.alloc, pace(c));
+  const perDay = c.left > 0 ? c.left / Math.max(1, c.dl) : 0;
   const rw = c.cur ? runway() : null;
-  const first = L().S.start && c.m === L().S.start.slice(0, 7) && c.st > 1;
-  return `<div class="hero-l">
-    <div class="bal"><span>手上能花 <b class="num">${money(c.remain)}</b></span><span class="num">卡 ${money(c.card)} · 现金 ${money(c.cash)}${c.pot > 0 ? ` · 储蓄罐另有 ${money(c.pot)}` : ""}</span></div>
-    ${rw ? `<div class="runway ${rw.short ? "bad" : ""}">${rw.short ? "手上的钱不够付完待付的大额了" : rw.date ? `按预算花，钱够用到 <b>${fmtDate(rw.date)}</b>` : "按预算花，钱够用很久"}</div>` : ""}
-    <div class="mrow-h">${withNav ? `<button class="ghost" data-act="mprev" aria-label="上个月">‹</button>` : ""}<span class="lab">${c.cur ? "这个月还能花" : mLabel(c.m) + " 结余"}</span>${withNav ? `<button class="ghost" data-act="mnext" aria-label="下个月" ${c.cur ? "disabled" : ""}>›</button>` : ""}</div>
-    <div class="amt num ${c.left < 0 ? "neg" : ""}">${money(c.left)}</div>
-    <div class="pace">${pill ? `<span class="pill ${st}">${pill}</span>` : ""}${c.cur ? (c.left > 0 ? `接下来每天 <b class="num">£${f2(c.left / Math.max(1, c.dl))}</b>` : c.left < 0 ? "下个月额度里要补回来" : "额度刚好用完") : ""}</div>
-    <div class="bar"><i class="${st}" style="width:${c.alloc > 0 ? Math.min(100, c.spent / c.alloc * 100).toFixed(1) : 0}%"></i>${c.cur ? `<b style="left:calc(${(Math.max(0, c.dn - c.st + 1) / (c.dim - c.st + 1) * 100).toFixed(1)}% - 1px)"></b>` : ""}</div>
-    <div class="meta num"><span>预算 £${f2(c.alloc)} · 已花 £${f2(c.spent)}</span><span>${c.cur ? "还剩 " + c.dl + " 天" : ""}</span></div>
-    ${first ? `<div class="hint">${+c.m.slice(5)} 月从 ${c.st} 号开始记账，预算按剩下 ${c.dim - c.st + 1} 天折算；下个月起是完整的 £${f2(monthlyBudget())}。</div>` : ""}
+  return `<div class="hero2">
+    <div class="lab">${c.cur ? "今天起每天还能花" : mLabel(c.m)}</div>
+    ${c.cur ? `<div class="amt num ${c.left < 0 ? "neg" : ""}">${c.left < 0 ? "超了" : "£" + f2(perDay)}<small>${c.left < 0 ? "" : " / 天"}</small></div>
+      <div class="sub">这个月还剩 <b class="num ${c.left < 0 ? "up" : ""}">${money(c.left)}</b>，还有 ${c.dl} 天 ${st ? `<span class="pill ${st}">${st === "bad" ? "超预算了" : "花得偏快"}</span>` : `<span class="pill">节奏正常</span>`}</div>`
+    : `<div class="amt num ${c.left < 0 ? "neg" : ""}">${c.left < 0 ? "超了 " + money(-c.left) : "省下 " + money(c.left)}</div>
+      <div class="sub">预算 £${f2(c.alloc)} · 花了 £${f2(c.spent)}</div>`}
+    ${rw ? `<div class="runway ${rw.short ? "bad" : ""}">${rw.short ? "手上的钱不够付完待付的大额了" : rw.date ? `按预算花，手上的钱够用到 <b>${fmtDate(rw.date)}</b>` : "按预算花，钱够用很久"}</div>` : ""}
   </div>`;
 }
-function chart(c) {
-  const n = c.dim, per = c.alloc / Math.max(1, n - c.st + 1); let max = per * 1.6;
-  for (let i = 1; i <= n; i++) if ((c.byD[i] || 0) > max) max = c.byD[i];
-  if (!(max > 0)) max = 1;
-  const W = 600, H = 70, gap = 3, bw = (W - gap * (n - 1)) / n, y = v => H - v / max * H;
-  let h = "", over = 0;
-  for (let i = 1; i <= n; i++) {
-    const v = c.byD[i] || 0, x = (i - 1) * (bw + gap);
-    if (i > c.dn || v <= 0) { h += `<rect x="${x.toFixed(1)}" y="${H - 2}" width="${bw.toFixed(1)}" height="2" rx="1" fill="var(--line)"><title>${i} 日 · £0</title></rect>`; continue; }
-    if (v > per) over++;
-    const bh = Math.max(3, H - y(v));
-    h += `<rect x="${x.toFixed(1)}" y="${(H - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${v > per ? "var(--warn)" : "var(--acc)"}" opacity=".8"><title>${i} 日 · £${f2(v)}</title></rect>`;
-  }
-  if (per > 0) h += `<line x1="0" x2="${W}" y1="${y(per).toFixed(1)}" y2="${y(per).toFixed(1)}" stroke="var(--ink3)" stroke-width="1" stroke-dasharray="4 4"/>`;
-  return `<div class="chart"><div class="hd"><span>每天花了多少</span><span><i></i>日均预算 £${f2(per)}${over ? ` · 超了 ${over} 天` : ""}</span></div>
-    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="本月每天花销">${h}</svg>
-    <div class="ax"><span>1 日</span><span>${Math.ceil(n / 2)} 日</span><span>${n} 日</span></div></div>`;
+// 这个月累计花了多少：实线是实际，虚线是按预算该花到哪，点线是照现在的速度月底会花到哪
+function burnChart(c) {
+  const W = window.innerWidth < 600 ? 360 : 640, H = window.innerWidth < 600 ? 200 : 220, L0 = 44, R0 = 12, T0 = 14, B0 = 26, st = c.st, n = c.dim;
+  const cum = []; let s = 0;
+  for (let i = st; i <= n; i++) { s += c.byD[i] || 0; cum.push(s); }
+  const upto = c.cur ? c.dn : n, used = upto - st + 1;
+  const now = used > 0 ? cum[used - 1] : 0;
+  const proj = c.cur && used > 0 ? now / used * (n - st + 1) : now;
+  const ymax = Math.max(c.alloc, proj, now, 1) * 1.12;
+  const x = d => L0 + (d - st + 1) / Math.max(1, n - st + 1) * (W - L0 - R0), y = v => T0 + (1 - v / ymax) * (H - T0 - B0);
+  const pts = [`${x(st - 1).toFixed(1)},${y(0).toFixed(1)}`, ...cum.slice(0, Math.max(0, used)).map((v, i) => `${x(st + i).toFixed(1)},${y(v).toFixed(1)}`)];
+  const over = now > c.alloc * pace(c) * 1.15 + 1;
+  const col = now > c.alloc ? "var(--bad)" : over ? "var(--warn)" : "var(--acc)";
+  const ticks = [st, Math.round((st + n) / 2), n].filter((v, i, a) => a.indexOf(v) === i);
+  return `<div class="burn"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="这个月累计花销和预算">
+    <line x1="${L0}" x2="${W - R0}" y1="${y(c.alloc)}" y2="${y(c.alloc)}" stroke="var(--ink3)" stroke-width="1" opacity=".5"/>
+    <text x="${L0 - 6}" y="${y(c.alloc) + 4}" text-anchor="end" class="ax">£${Math.round(c.alloc)}</text>
+    <text x="${L0 - 6}" y="${y(0) + 4}" text-anchor="end" class="ax">£0</text>
+    <line x1="${x(st - 1)}" y1="${y(0)}" x2="${x(n)}" y2="${y(c.alloc)}" stroke="var(--ink3)" stroke-width="1.5" stroke-dasharray="5 5"/>
+    ${c.cur && used > 0 && used < n - st + 1 ? `<line x1="${x(upto)}" y1="${y(now)}" x2="${x(n)}" y2="${y(proj)}" stroke="${col}" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round"/>` : ""}
+    ${pts.length ? `<polyline points="${pts.join(" ")}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="${x(upto)}" cy="${y(now)}" r="4.5" fill="${col}"/>
+      <text x="${Math.min(x(upto) + 8, W - 60)}" y="${y(now) - 8}" class="lbl">£${f2(now)}</text>` : ""}
+    ${ticks.map(d => `<text x="${x(d)}" y="${H - 6}" text-anchor="middle" class="ax">${+c.m.slice(5)}/${d}</text>`).join("")}
+    <line x1="${L0}" x2="${W - R0}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>
+  </svg>
+  <div class="burnleg"><span><i class="ln" style="border-color:${col}"></i>实际花了</span><span><i class="ln dash"></i>按预算该花到这</span>${c.cur ? `<span><i class="ln dot" style="border-color:${col}"></i>照这个速度，月底花到 £${f2(proj)}</span>` : ""}</div></div>`;
+}
+function bar(name, spent, budget, p, fixed, act) {
+  const stt = fixed ? "" : status(spent, budget, p), pct = budget > 0 ? Math.min(100, spent / budget * 100) : 0;
+  const left = budget - spent;
+  const right = !(budget > 0) ? `花了 <b>£${f2(spent)}</b>` : fixed ? (spent >= budget - 0.004 ? `<b>已交 ✓</b>` : `还没交 <b>£${f2(budget)}</b>`)
+    : left < -0.004 ? `超了 <b>£${f2(-left)}</b>` : `还剩 <b>£${f2(left)}</b><small> / ${f2(budget)}</small>`;
+  return `<button class="cb ${stt}" ${act}><span class="nm">${esc(name)}</span>
+    <span class="trk">${budget > 0 ? `<i style="width:${pct.toFixed(1)}%"></i>${!fixed && p < 1 ? `<b style="left:${(p * 100).toFixed(1)}%"></b>` : ""}` : ""}</span>
+    <span class="r num">${right}</span></button>`;
 }
 function catList(c) {
-  let h = "";
+  const p = pace(c); let h = "";
   for (const k of L().S.cats) {
-    const a = catBudget(k, c.m), sp = c.byC[k.id] || 0, lf = a - sp;
-    const pr = a > 0 ? Math.min(100, sp / a * 100) : (sp > 0 ? 100 : 0);
-    const cl = a > 0 ? (lf < 0 ? "bad" : lf / a <= .2 ? "warn" : "") : "";
-    h += `<div class="it ${cl}"><button class="t" data-act="jfilter" data-id="${k.id}"><span class="nm">${esc(k.n)}</span>
-      <span class="v num">${a > 0 ? `剩 <b>${money(lf)}</b> / ${f2(a)}` : `<b>£${f2(sp)}</b> 只记不设预算`}</span></button>
-      ${a > 0 ? `<div class="pb"><i style="width:${pr.toFixed(0)}%"></i></div>` : ""}</div>`;
-    for (const s of k.subs || []) {
-      const sa = subBudget(k, s, c.m), ss = c.byS[s.id] || 0;
-      if (!k.subBudget && ss <= 0) continue;
-      const sl = sa - ss, spr = sa > 0 ? Math.min(100, ss / sa * 100) : 0;
-      const scl = sa > 0 ? (sl < 0 ? "bad" : sl / sa <= .2 ? "warn" : "") : "";
-      h += `<div class="it sub ${scl}"><button class="t" data-act="jfilter" data-id="${s.id}"><span class="nm">${esc(s.n)}</span>
-        <span class="v num">${sa > 0 ? `剩 <b>${money(sl)}</b> / ${f2(sa)}` : `花了 <b>£${f2(ss)}</b>`}</span></button>
-        ${sa > 0 ? `<div class="pb"><i style="width:${spr.toFixed(0)}%"></i></div>` : ""}</div>`;
-    }
+    const a = catBudget(k, c.m), sp = c.byC[k.id] || 0;
+    if (!(a > 0) && sp <= 0) continue;
+    h += bar(k.n, sp, a, p, k.fixed, `data-act="jfilter" data-id="${k.id}"`);
+    if (k.subBudget) h += `<div class="subs">${(k.subs || []).map(s => bar(s.n, c.byS[s.id] || 0, subBudget(k, s, c.m), p, false, `data-act="jfilter" data-id="${s.id}"`)).join("")}</div>`;
+    else if ((k.subs || []).some(s => c.byS[s.id])) h += `<div class="subnote">${k.subs.filter(s => c.byS[s.id]).map(s => `${esc(s.n)} £${f2(c.byS[s.id])}`).join(" · ")}</div>`;
   }
-  return h;
+  return h + `<div class="hint legend"><span class="lg"><i></i>竖线 = 按日子今天该花到哪</span><span class="lg warn"><i></i>花得偏快</span><span class="lg bad"><i></i>超预算</span></div>`;
+}
+// 手上的钱分成几块
+function overviewHtml(c) {
+  const hand = Math.max(0, c.remain), left = Math.max(0, Math.min(c.left, hand)), up = Math.min(unpaidTotal(), hand - left);
+  const future = Math.max(0, hand - left - up), total = hand + c.pot || 1;
+  const seg = (v, cls, label) => v > 0 ? `<div class="${cls}" style="flex:${v}" title="${label} £${f2(v)}">${v / total > .12 ? label.split(" ")[0] : ""}</div>` : "";
+  return `<div class="ovtop"><span>手上 <b class="num">£${f2(hand)}</b></span>${c.pot > 0 ? `<span>储蓄罐 <b class="num">£${f2(c.pot)}</b></span>` : ""}</div>
+    <div class="stack">${seg(left, "s1", "这个月")}${seg(up, "s2", "待付")}${seg(future, "s3", "以后的生活费")}${seg(c.pot, "s4", "储蓄罐")}</div>
+    <div class="leg">
+      <span><i class="s1"></i>这个月还能花 <b class="num">£${f2(left)}</b></span>
+      ${up > 0 ? `<span><i class="s2"></i>还没付的大额 <b class="num">£${f2(up)}</b></span>` : ""}
+      <span><i class="s3"></i>以后几个月的生活费 <b class="num">£${f2(future)}</b></span>
+      ${c.pot > 0 ? `<span><i class="s4"></i>储蓄罐 <b class="num">£${f2(c.pot)}</b></span>` : ""}
+    </div>`;
 }
 function journal(list) {
   if (!list.length) return `<div class="empty">这里还没有账。点右下角的 + 记一笔。</div>`;
@@ -358,22 +393,27 @@ export function renderLedger(el) {
   const c = calc(viewMonth), E = L().E;
   let list = E.filter(x => x.date.slice(0, 7) === viewMonth), fname = "";
   if (jFilter) { list = list.filter(x => x.cat === jFilter || x.sub === jFilter); fname = subName(jFilter) || nameOf(jFilter); }
-  const up = unpaidTotal();
-  el.innerHTML = `<div class="pagehead"><h1>记账</h1><div class="acts"><button class="btn" data-act="settings">预算和备份</button></div></div>
+  const up = unpaidTotal(), first = L().S.start && c.m === L().S.start.slice(0, 7) && c.st > 1;
+  const canNext = monthShift(viewMonth, 1) <= today().slice(0, 7);
+  el.innerHTML = `<div class="pagehead"><h1>记账</h1>
+    <div class="mnav"><button class="ghost" data-act="mprev" aria-label="上个月">‹</button><b>${mLabel(viewMonth)}</b><button class="ghost" data-act="mnext" aria-label="下个月" ${canNext ? "" : "disabled"}>›</button></div>
+    <div class="acts"><button class="btn" data-act="settings">预算和备份</button></div></div>
   ${c.cur ? monthEndBanner() : ""}
+  <section class="card herowide">${heroCard(c)}${burnChart(c)}</section>
+  ${first ? `<p class="hint mtop">${+c.m.slice(5)} 月从 ${c.st} 号开始记账，预算按剩下 ${c.dim - c.st + 1} 天折算成 £${f2(c.alloc)}；下个月起是完整的 £${f2(monthlyBudget())}。</p>` : ""}
   <div class="cols2">
     <div>
-      <section class="card">${heroCard(c, true)}${chart(c)}</section>
-      <h2>各分类<span>点一下只看这一类的账</span></h2>
-      <section class="card list flush">${catList(c)}</section>
+      <h2>每一类还剩多少<span>点一下只看这一类的账</span></h2>
+      <section class="card cats">${catList(c)}</section>
+      <h2>${viewMonth === today().slice(0, 7) ? "这个月" : +viewMonth.slice(5) + " 月"}的账${fname ? `<span>只看「${esc(fname)}」 <button class="linkbtn" data-act="jfilter" data-id="">看全部</button></span>` : `<span>${list.filter(x => isSpend(x) && !goalOf(x.cat)).length} 笔</span>`}</h2>
+      ${journal(list)}
     </div>
     <div>
-      <h2 class="h2top">储蓄罐</h2>
+      ${c.cur ? `<h2>手上的钱都在哪</h2><section class="card">${overviewHtml(c)}</section>` : ""}
+      <h2>储蓄罐</h2>
       <section class="card">${potHtml(false)}</section>
       <h2>待付的大额<span>${up > 0 ? "还要付 £" + f2(up) : "都付了"}</span></h2>
       <section class="card list flush">${onesHtml()}</section>
-      <h2>${viewMonth === today().slice(0, 7) ? "这个月" : +viewMonth.slice(5) + " 月"}的账${fname ? `<span>只看「${esc(fname)}」 <button class="linkbtn" data-act="jfilter" data-id="">看全部</button></span>` : `<span>${list.filter(x => isSpend(x) && !goalOf(x.cat)).length} 笔</span>`}</h2>
-      ${journal(list)}
     </div>
   </div>`;
 }
