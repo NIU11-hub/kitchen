@@ -130,25 +130,30 @@ try { Object.assign(F, JSON.parse(localStorage.getItem(UIK) || "{}")); } catch (
 const saveF = () => { try { localStorage.setItem(UIK, JSON.stringify(F)); } catch (e) {} };
 const SHOW_SUBS = ["grocery", "eat"];
 
+// 话费这种每月一次的，这个月交过了就不再出现在记一笔里
+function openCats() {
+  const c = calc();
+  return L().S.cats.filter(k => !(k.fixed && catBudget(k) > 0 && (c.byC[k.id] || 0) >= catBudget(k) - 0.004));
+}
 function recentQuick() {
-  const seen = new Set(), out = [];
+  const seen = new Set(), out = [], ok = new Set(openCats().map(k => k.id));
   for (const x of L().E) {
     if (out.length >= 6) break;
-    if (!x.note || !catOf(x.cat) || x.meta) continue;
+    if (!x.note || !ok.has(x.cat) || x.meta) continue;
     const k = x.note + "|" + x.cat + "|" + x.sub; if (seen.has(k)) continue; seen.add(k); out.push(x);
   }
   return out;
 }
 function formHtml() {
-  const S = L().S;
-  if (!catOf(F.cat)) F.cat = S.cats[0].id;
+  const cats = openCats();
+  if (!cats.some(k => k.id === F.cat)) F.cat = cats[0].id;
   const cur = catOf(F.cat), subs = SHOW_SUBS.includes(cur.id) ? cur.subs || [] : [];
   if (subs.length && !subs.some(s => s.id === F.sub)) F.sub = subs[0].id;
   const q = recentQuick();
   return `<div class="amtbox"><span class="cur">£</span><input class="bigin num" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" aria-label="金额"></div>
     ${q.length ? `<div class="quick">${q.map((x, i) => `<button type="button" data-act="quick" data-i="${i}">${esc(x.note)}</button>`).join("")}</div>` : ""}
     <div class="flab">分类</div>
-    <div class="chips">${S.cats.map(k => `<button type="button" class="chip2" data-act="fcat" data-id="${k.id}" aria-pressed="${k.id === F.cat}">${esc(k.n)}</button>`).join("")}</div>
+    <div class="chips">${cats.map(k => `<button type="button" class="chip2" data-act="fcat" data-id="${k.id}" aria-pressed="${k.id === F.cat}">${esc(k.n)}</button>`).join("")}</div>
     ${subs.length ? `<div class="chips mtop">${subs.map(s => `<button type="button" class="chip2 sm" data-act="fsub" data-id="${s.id}" aria-pressed="${s.id === F.sub}">${esc(s.n)}</button>`).join("")}</div>` : ""}
     <div class="two">
       <label>日期<input name="date" type="date" value="${today()}"></label>
@@ -305,33 +310,16 @@ export function heroCard(c) {
     ${rw ? `<div class="runway ${rw.short ? "bad" : ""}">${rw.short ? "手上的钱不够付完待付的大额了" : rw.date ? `按预算花，手上的钱够用到 <b>${fmtDate(rw.date)}</b>` : "按预算花，钱够用很久"}</div>` : ""}
   </div>`;
 }
-// 这个月累计花了多少：实线是实际，虚线是按预算该花到哪，点线是照现在的速度月底会花到哪
-function burnChart(c) {
-  const W = window.innerWidth < 600 ? 360 : 640, H = window.innerWidth < 600 ? 200 : 220, L0 = 44, R0 = 12, T0 = 14, B0 = 26, st = c.st, n = c.dim;
-  const cum = []; let s = 0;
-  for (let i = st; i <= n; i++) { s += c.byD[i] || 0; cum.push(s); }
-  const upto = c.cur ? c.dn : n, used = upto - st + 1;
-  const now = used > 0 ? cum[used - 1] : 0;
-  const proj = c.cur && used > 0 ? now / used * (n - st + 1) : now;
-  const ymax = Math.max(c.alloc, proj, now, 1) * 1.12;
-  const x = d => L0 + (d - st + 1) / Math.max(1, n - st + 1) * (W - L0 - R0), y = v => T0 + (1 - v / ymax) * (H - T0 - B0);
-  const pts = [`${x(st - 1).toFixed(1)},${y(0).toFixed(1)}`, ...cum.slice(0, Math.max(0, used)).map((v, i) => `${x(st + i).toFixed(1)},${y(v).toFixed(1)}`)];
-  const over = now > c.alloc * pace(c) * 1.15 + 1;
-  const col = now > c.alloc ? "var(--bad)" : over ? "var(--warn)" : "var(--acc)";
-  const ticks = [st, Math.round((st + n) / 2), n].filter((v, i, a) => a.indexOf(v) === i);
-  return `<div class="burn"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="这个月累计花销和预算">
-    <line x1="${L0}" x2="${W - R0}" y1="${y(c.alloc)}" y2="${y(c.alloc)}" stroke="var(--ink3)" stroke-width="1" opacity=".5"/>
-    <text x="${L0 - 6}" y="${y(c.alloc) + 4}" text-anchor="end" class="ax">£${Math.round(c.alloc)}</text>
-    <text x="${L0 - 6}" y="${y(0) + 4}" text-anchor="end" class="ax">£0</text>
-    <line x1="${x(st - 1)}" y1="${y(0)}" x2="${x(n)}" y2="${y(c.alloc)}" stroke="var(--ink3)" stroke-width="1.5" stroke-dasharray="5 5"/>
-    ${c.cur && used > 0 && used < n - st + 1 ? `<line x1="${x(upto)}" y1="${y(now)}" x2="${x(n)}" y2="${y(proj)}" stroke="${col}" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round"/>` : ""}
-    ${pts.length ? `<polyline points="${pts.join(" ")}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-      <circle cx="${x(upto)}" cy="${y(now)}" r="4.5" fill="${col}"/>
-      <text x="${Math.min(x(upto) + 8, W - 60)}" y="${y(now) - 8}" class="lbl">£${f2(now)}</text>` : ""}
-    ${ticks.map(d => `<text x="${x(d)}" y="${H - 6}" text-anchor="middle" class="ax">${+c.m.slice(5)}/${d}</text>`).join("")}
-    <line x1="${L0}" x2="${W - R0}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>
-  </svg>
-  <div class="burnleg"><span><i class="ln" style="border-color:${col}"></i>实际花了</span><span><i class="ln dash"></i>按预算该花到这</span>${c.cur ? `<span><i class="ln dot" style="border-color:${col}"></i>照这个速度，月底花到 £${f2(proj)}</span>` : ""}</div></div>`;
+// 这个月的预算一根条：已花多少、还能花多少，竖线是按日子今天该花到哪
+function monthBar(c) {
+  const a = c.alloc, sp = c.spent, p = pace(c), should = a * p;
+  const pct = a > 0 ? Math.min(100, sp / a * 100) : 0, st = status(sp, a, p);
+  return `<div class="mbar ${st}">
+    <div class="mbar-h"><span>这个月预算 <b class="num">£${f2(a)}</b></span></div>
+    <div class="mbar-t"><i style="width:${pct.toFixed(1)}%"></i>${c.cur ? `<b style="left:${(p * 100).toFixed(1)}%"></b>` : ""}</div>
+    <div class="mbar-l"><span>已花 <b class="num">£${f2(sp)}</b></span><span>${c.left < 0 ? `超了 <b class="num up">£${f2(-c.left)}</b>` : `还能花 <b class="num">£${f2(c.left)}</b>`}</span></div>
+    ${c.cur ? `<div class="hint">竖线是按日子到今天该花的 £${f2(should)}，${sp <= should ? "你现在在线的左边，花得不快" : "你已经过线了，这几天省着点"}。</div>` : ""}
+  </div>`;
 }
 function bar(name, spent, budget, p, fixed, act) {
   const stt = fixed ? "" : status(spent, budget, p), pct = budget > 0 ? Math.min(100, spent / budget * 100) : 0;
@@ -399,7 +387,7 @@ export function renderLedger(el) {
     <div class="mnav"><button class="ghost" data-act="mprev" aria-label="上个月">‹</button><b>${mLabel(viewMonth)}</b><button class="ghost" data-act="mnext" aria-label="下个月" ${canNext ? "" : "disabled"}>›</button></div>
     <div class="acts"><button class="btn" data-act="settings">预算和备份</button></div></div>
   ${c.cur ? monthEndBanner() : ""}
-  <section class="card herowide">${heroCard(c)}${burnChart(c)}</section>
+  <section class="card herowide">${heroCard(c)}${monthBar(c)}</section>
   ${first ? `<p class="hint mtop">${+c.m.slice(5)} 月从 ${c.st} 号开始记账，预算按剩下 ${c.dim - c.st + 1} 天折算成 £${f2(c.alloc)}；下个月起是完整的 £${f2(monthlyBudget())}。</p>` : ""}
   <div class="cols2">
     <div>

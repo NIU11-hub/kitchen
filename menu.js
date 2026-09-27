@@ -84,13 +84,13 @@ export function generate(key) {
   const midDinner = all.filter(r => MAIN(r) && r.diff !== "费事" && (+r.mins || 0) <= 60);
   const weekend = all.filter(r => MAIN(r));
   const weekendBig = weekend.filter(r => r.diff === "费事" || r.diff === "中等");
-  const post = store.byId["post-workout"], bed = store.byId["bedtime-milk"];
+  const post = store.byId["post-workout"], beds = all.filter(r => r.slot === "睡前");
 
   for (let di = 0; di < 7; di++) {
     const isTrain = train.includes(di), wkend = di >= 5;
     if (free(di, "b")) put(di, "b", pickFrom(wkend ? bfAll : bfQuick, used, lastWeek));
     if (free(di, "s") && post) put(di, "s", post);
-    if (free(di, "n") && bed) put(di, "n", bed);
+    if (free(di, "n") && beds.length) put(di, "n", pickFrom(beds, used, new Set(), 4) || beds[0]);
   }
   // 工作日午餐：一次做两顿，周一二一样、周四五一样；周三单独一顿
   for (const pair of [[0, 1], [3, 4]]) {
@@ -147,10 +147,11 @@ function bar(label, v, target, color, lo) {
   return `<div class="mrow"><div class="lab"><span>${label}</span><span><b>${r0(v)}</b> / ${lo ? lo + "–" : ""}${target}</span></div>
     <div class="track"><span style="width:${pct}%;background:${over ? "var(--warn)" : color}"></span></div></div>`;
 }
-export function recipeOptions(cur) {
+export function recipeOptions(cur, slot) {
   const list = c => store.recipes.filter(r => r.cat === c);
+  const fit = slot ? store.recipes.filter(r => r.slot === slot) : [];
   return `${cur ? `<option value="__clear">✕ 清空这一格</option>` : `<option value="" selected disabled>选一道…</option>`}
-    <optgroup label="特殊情况">${Object.entries(SPECIAL).map(([k, v]) => `<option value="__${k}" ${cur === "__" + k ? "selected" : ""}>${v.label}</option>`).join("")}</optgroup>` +
+    ${fit.length ? `<optgroup label="常作${slot}的">${fit.map(r => `<option value="${esc(r.id)}" ${r.id === cur ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</optgroup>` : ""}<optgroup label="特殊情况">${Object.entries(SPECIAL).map(([k, v]) => `<option value="__${k}" ${cur === "__" + k ? "selected" : ""}>${v.label}</option>`).join("")}</optgroup>` +
     CATS.map(c => list(c).length ? `<optgroup label="${c}">${list(c).map(r => `<option value="${esc(r.id)}" ${r.id === cur ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</optgroup>` : "").join("");
 }
 export function specialBox(key, di, k, cu, compact) {
@@ -224,8 +225,8 @@ function mealRow(key, di, s, e) {
     </div>
     <div class="num-r"><b>${r0(en.kcal)}</b> kcal · P ${r0(en.p)}</div>
     <div class="swaprow">
-      <select data-chg="swap" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-label="换${s.name}">${recipeOptions(cur)}</select>
-      ${e.r && !cu && (s.k === "l" || s.k === "d") ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}
+      <select data-chg="swap" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-label="换${s.name}">${recipeOptions(cur, s.name)}</select>
+      ${e.r && !cu && s.k !== "s" && s.k !== "n" ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}
       ${(e.r || cu) ? `<button class="lock ${e.lock ? "on" : ""}" data-act="lock" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-pressed="${!!e.lock}" title="${e.lock ? "已锁定，随机生成不会换" : "锁定这一格"}">${e.lock ? "🔒" : "🔓"}</button>` : ""}
     </div>
   </div>`;
