@@ -84,12 +84,14 @@ export function generate(key) {
   const midDinner = all.filter(r => MAIN(r) && r.diff !== "费事" && (+r.mins || 0) <= 60);
   const weekend = all.filter(r => MAIN(r));
   const weekendBig = weekend.filter(r => r.diff === "费事" || r.diff === "中等");
-  const post = store.byId["post-workout"], beds = all.filter(r => r.slot === "睡前");
+  const post = store.byId["post-workout"], postAlt = all.filter(r => r.slot === "练后" && r.id !== "post-workout"), beds = all.filter(r => r.slot === "睡前");
+  let alt = 0;
 
   for (let di = 0; di < 7; di++) {
     const isTrain = train.includes(di), wkend = di >= 5;
     if (free(di, "b")) put(di, "b", pickFrom(wkend ? bfAll : bfQuick, used, lastWeek));
-    if (free(di, "s") && post) put(di, "s", post);
+    // 练后平时就是蛋白奶，一周偶尔换一两次
+    if (free(di, "s") && post) put(di, "s", postAlt.length && alt < 2 && Math.random() < 0.25 ? (alt++, postAlt[Math.floor(Math.random() * postAlt.length)]) : post);
     if (free(di, "n") && beds.length) put(di, "n", pickFrom(beds, used, new Set(), 4) || beds[0]);
   }
   // 工作日午餐：一次做两顿，周一二一样、周四五一样；周三单独一顿
