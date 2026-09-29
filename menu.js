@@ -110,7 +110,8 @@ function riceFor(r, slotK) {
 export function generate(key) {
   refreshLast(key);
   const w = week(key, true), m = M(), train = trainOf(key);
-  const all = store.recipes;
+  // 冰箱只有一小格冷冻，要冻起来的备餐不自动排
+  const all = store.recipes.filter(r => !/冷冻/.test(r.name));
   const prev = week(addDays(key, -7));
   const lastWeek = new Set(); prev?.days.forEach(d => Object.values(d).forEach(e => e?.r && lastWeek.add(e.r)));
   const used = {};
