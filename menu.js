@@ -35,6 +35,24 @@ export function migrateMenu() {
   m.dayNotes[1] = "13–15 点有课，午饭课前吃；16–17 点训练";
   m.cv = 2; save();
 }
+// 2026-09-29 刚从中国回来：这周周二不排，周三到周六练减载（计划 W4），周日休
+export function migrateWeek() {
+  const m = M(), key = "2026-09-28"; if (!m || (m.cv || 0) >= 3) return;
+  m.cv = 3;
+  if (thisWeek() !== key) { save(); return; }
+  const w = week(key, true);
+  w.train = [2, 3, 4, 5]; w.off = [1];
+  w.notes = {
+    1: "刚从中国回来，今天不排，午饭 Meal Deal",
+    2: "减载 · 上肢推，16–17 点。卧推 65 做 2 组 5 次；潘德雷划船 2×6；面拉 + 窄握下压 2×15 / 2×12；单手过头农夫 1 组 20 米/侧",
+    3: "减载 · 下肢膝，18:00 下课后。深蹲 85 做 2 组 5 次；保加利亚单腿蹲 2×8/侧；腿弯举 2×12；农夫行走 1 组 30 米。跳箱下落这周不做。晚饭 19:30 以后吃提前备好的",
+    4: "减载 · 上肢拉，16–17 点。上斜哑铃卧推 2×8；宽握下拉 2×10；侧平举 + 佐特曼弯举 2×15 / 2×12；土耳其起立 2×3/侧",
+    5: "减载 · 下肢髋。罗马尼亚硬拉 70 做 2 组 8 次；单腿 RDL 2×8/侧；提踵 + 帕洛夫 2×15 / 2×12；哥萨克蹲 2×6/侧",
+    6: "完全休息，这周不做有氧",
+  };
+  for (const k of Object.keys(w.days[1])) if (!w.days[1][k]?.custom) delete w.days[1][k];
+  generate(key);
+}
 
 /* ---------- 按周存 ---------- */
 export const thisWeek = () => mondayOf(today());
@@ -42,6 +60,15 @@ export function week(key, create) {
   const m = M(); m.weeks = m.weeks || {};
   if (!m.weeks[key] && create) m.weeks[key] = { days: Array.from({ length: 7 }, () => ({})) };
   return m.weeks[key] || null;
+}
+// 某一周的训练日、不排菜的日子、当天备注：这周单独设过就用这周的
+export const trainOf = key => week(key)?.train || M().train || [0, 1, 3, 4];
+export const offOf = (key, di) => !!week(key)?.off?.includes(di);
+export const noteOf = (key, di) => week(key)?.notes?.[di] ?? M().dayNotes?.[di] ?? "";
+export function dayKindOf(key, di) {
+  if (offOf(key, di)) return "不排";
+  if (trainOf(key).includes(di)) return "训练";
+  return !week(key)?.train && di === 5 ? "有氧" : "休息";
 }
 export function todayEntry() { const w = week(thisWeek()); return w ? w.days[dow(today())] : {}; }
 function pruneWeeks() {
@@ -82,7 +109,7 @@ function riceFor(r, slotK) {
 }
 export function generate(key) {
   refreshLast(key);
-  const w = week(key, true), m = M(), train = m.train || [0, 1, 3, 4];
+  const w = week(key, true), m = M(), train = trainOf(key);
   const all = store.recipes;
   const prev = week(addDays(key, -7));
   const lastWeek = new Set(); prev?.days.forEach(d => Object.values(d).forEach(e => e?.r && lastWeek.add(e.r)));
@@ -98,7 +125,7 @@ export function generate(key) {
   };
   // 已经过去的日子不动，只排今天和以后
   const past = di => addDays(key, di) < today();
-  const free = (di, k) => { if (past(di)) return false; const c = w.days[di][k]; return !(c && (c.lock || c.custom)); };
+  const free = (di, k) => { if (past(di) || offOf(key, di)) return false; const c = w.days[di][k]; return !(c && (c.lock || c.custom)); };
 
   const bfAll = all.filter(r => r.slot === "早餐" && perServing(r).kcal >= 350);
   const bfQuick = bfAll.filter(r => (+r.mins || 0) <= 30 || r.batch);
@@ -199,9 +226,8 @@ export function renderMenu(el) {
   const key = addDays(thisWeek(), 7 * wkSel), m = M();
   const w = week(key);
   const d = w?.days[daySel] || {}, n = dayN(d);
-  const train = m.train || [0, 1, 3, 4];
-  const dayKind = i => train.includes(i) ? "训练" : i === 5 ? "有氧" : "休息";
-  const note = m.dayNotes?.[daySel], cls = m.classes?.[daySel] || [];
+  const dayKind = i => dayKindOf(key, i);
+  const note = noteOf(key, daySel), cls = m.classes?.[daySel] || [];
   el.innerHTML = `<div class="pagehead"><h1>菜单</h1>
     <div class="seg2 big">${["本周", "下周"].map((t, i) => `<button data-act="wk" data-i="${i}" aria-pressed="${wkSel === i}">${t}<small>${fmtMD(addDays(thisWeek(), 7 * i))}–${fmtMD(addDays(thisWeek(), 7 * i + 6))}</small></button>`).join("")}</div>
     <div class="acts">

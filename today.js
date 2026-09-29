@@ -3,29 +3,29 @@ import { store } from "./store.js";
 import { SLOTS, DAY, SPECIAL } from "./data.js";
 import { esc, r0, f2, money, today, addDays, dow, fmtDay, fmtMD } from "./util.js";
 import { actions, ui } from "./ui.js";
-import { M, week, thisWeek, entryN, dayN, specialBox, generate } from "./menu.js";
+import { M, week, thisWeek, entryN, dayN, specialBox, generate, dayKindOf, noteOf, offOf } from "./menu.js";
 import { calc, heroCard, potHtml, monthEndBanner } from "./ledger.js";
 import { buildShop, nextTrip } from "./shop.js";
 
 export function renderToday(el) {
   const t = today(), di = dow(t), key = thisWeek(), m = M(), w = week(key);
   const d = w?.days[di] || {}, n = dayN(d);
-  const train = (m.train || [0, 1, 3, 4]).includes(di);
+  const kind = dayKindOf(key, di);
   const h = new Date().getHours();
   const hi = h < 5 ? "夜深了" : h < 11 ? "早上好" : h < 13 ? "中午好" : h < 18 ? "下午好" : "晚上好";
-  const cls = m.classes?.[di] || [], note = m.dayNotes?.[di];
+  const cls = m.classes?.[di] || [], note = noteOf(key, di);
   const c = calc();
   const nt = nextTrip(), shop = buildShop(nt.key, nt.trip.k), rc = store.docs.shop?.receipts?.[`${nt.key}:${nt.trip.k}`];
   const tripDate = addDays(nt.key, nt.trip.day), tripWhen = tripDate === t ? "今天" : tripDate === addDays(t, 1) ? "明天" : fmtMD(tripDate);
   const hasPot = store.docs.ledger.S.goals.some(g => !g.open);
 
-  el.innerHTML = `<div class="pagehead"><div><h1>${hi}，子俊</h1><div class="subh">${fmtDay(t)} · ${train ? "训练日" : di === 5 ? "有氧日" : "休息日"}${cls.length ? " · " + cls.map(esc).join("、") : ""}</div>${note ? `<div class="subh">${esc(note)}</div>` : ""}</div></div>
+  el.innerHTML = `<div class="pagehead"><div><h1>${hi}，子俊</h1><div class="subh">${fmtDay(t)} · ${kind === "不排" ? "今天不排菜单" : kind + "日"}${cls.length ? " · " + cls.map(esc).join("、") : ""}</div>${note ? `<div class="subh">${esc(note)}</div>` : ""}</div></div>
   ${monthEndBanner()}
   <div class="cols2">
     <div>
       <section class="card">
         <div class="cardh"><h3>今天吃什么</h3><button class="linkbtn" data-act="gomenu">去菜单改</button></div>
-        ${w ? `<div class="todaymeals">${SLOTS.filter(s => !s.opt || d[s.k]).map(s => {
+        ${w && !offOf(key, di) ? `<div class="todaymeals">${SLOTS.filter(s => !s.opt || d[s.k]).map(s => {
           const e = d[s.k], r = e && store.byId[e.r], en = entryN(e);
           const cu = e?.custom;
           return `<div class="tm"><span class="slot">${s.name}</span>
@@ -34,7 +34,7 @@ export function renderToday(el) {
             <span class="tmr-r"><span class="num-r">${en.kcal ? `${r0(en.kcal)} kcal · P ${r0(en.p)}` : ""}</span>
               ${!cu && e?.r && !s.opt && s.k !== "s" && s.k !== "n" ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}</span></div>`; }).join("")}</div>
           <div class="daysum num">合计 <b>${r0(n.kcal)}</b> / ${DAY.kcal} kcal · 蛋白 <b>${r0(n.p)}</b> / ${DAY.pLo}–${DAY.pHi} g</div>`
-        : `<div class="notice">今天还没排。<button class="go sm" data-act="gentrip" data-w="${key}">${di === 6 ? "随机排今天" : "随机排今天到周日"}</button></div>`}
+        : offOf(key, di) ? `<p class="hint">今天不排，自己看着吃。</p>` : `<div class="notice">今天还没排。<button class="go sm" data-act="gentrip" data-w="${key}">${di === 6 ? "随机排今天" : "随机排今天到周日"}</button></div>`}
       </section>
       <section class="card mtop">
         <div class="cardh"><h3>下一趟采购：${tripWhen}（${nt.trip.name}）</h3><button class="linkbtn" data-act="goshop">看清单</button></div>
