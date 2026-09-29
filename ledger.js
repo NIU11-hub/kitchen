@@ -163,7 +163,7 @@ function formHtml() {
     <button class="go mtop" type="submit">记下</button>`;
 }
 export function openAdd() {
-  modal(`<form class="addf" data-form="add" autocomplete="off"><div class="mhead"><p class="mt">记一笔</p><button type="button" class="x" data-close aria-label="关掉">×</button></div><div id="addbody">${formHtml()}</div></form>`);
+  modal(`<form class="addf" data-form="add" autocomplete="off"><div class="mhead"><p class="mt">记一笔</p><span class="mh-r"><button type="button" class="mini" data-act="openrc">粘贴小票</button><button type="button" class="x" data-close aria-label="关掉">×</button></span></div><div id="addbody">${formHtml()}</div></form>`);
 }
 function refreshForm() {
   const f = $("form[data-form=add]"); if (!f) return;
@@ -190,6 +190,96 @@ export function submitAdd(form) {
   close();
   toast(`记下了 £${f2(a)} · ${sub ? subName(sub) : cur.n}`, () => { removeEntry(x.id); ui.rerender(); });
   ui.rerender();
+}
+
+/* ---------- 粘贴小票：Claude 识别完给一段导入码，粘进来一次记好 ----------
+   格式：{"d":"2026-09-28","s":"Tesco","p":"card","l":[["eat","mealdeal",3.85,"三明治 水"], ...]}
+   l 每行 = [分类, 小类, 金额, 备注]；分类/小类写 id 或中文名都行。一次可以粘好几张。 */
+function scanObjects(txt) {
+  const out = []; let depth = 0, start = -1, inStr = false, escp = false;
+  for (let i = 0; i < txt.length; i++) {
+    const ch = txt[i];
+    if (inStr) { if (escp) escp = false; else if (ch === "\\") escp = true; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') { if (depth > 0) inStr = true; continue; }
+    if (ch === "{") { if (depth === 0) start = i; depth++; }
+    else if (ch === "}" && depth > 0) { depth--; if (depth === 0) { try { out.push(JSON.parse(txt.slice(start, i + 1))); } catch (e) {} } }
+  }
+  return out;
+}
+function findCat(v) {
+  const k = String(v ?? "").trim(), cats = L().S.cats;
+  return cats.find(c => c.id === k) || cats.find(c => c.n === k) || null;
+}
+function findSub(c, v) {
+  const k = String(v ?? "").trim(); if (!c || !k) return null;
+  return (c.subs || []).find(s => s.id === k) || (c.subs || []).find(s => s.n === k) || null;
+}
+function parseReceipts(txt) {
+  const norm = txt.replace(/[“”]/g, '"');
+  const recs = [];
+  for (const o of scanObjects(norm)) {
+    if (!o || !Array.isArray(o.l)) continue;
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(o.d || "") ? o.d : today();
+    const shop = String(o.s || "").trim();
+    const src = o.p === "cash" ? "cash" : "card";
+    const lines = [];
+    for (const r of o.l) {
+      const [cv, sv, av, nv] = Array.isArray(r) ? r : [r.c, r.sub, r.a, r.n];
+      const amt = round2(parseFloat(av));
+      if (!(amt > 0)) continue;
+      let c = findCat(cv), warn = "";
+      if (!c) { c = findCat("other"); warn = `没有「${cv}」这个分类，先放进其他`; }
+      const sub = findSub(c, sv);
+      if (sv && !sub && !warn && (c.subs || []).length) warn = `「${c.n}」下没有「${sv}」，只记大类`;
+      lines.push({ cat: c.id, sub: sub ? sub.id : "", amt, note: String(nv || "").trim(), warn });
+    }
+    if (!lines.length) continue;
+    const total = round2(lines.reduce((a, x) => a + x.amt, 0));
+    const rc = (shop + "|" + date + "|" + total).toLowerCase();
+    const dup = L().E.some(x => x.meta?.rc === rc);
+    recs.push({ date, shop, src, lines, total, rc, dup });
+  }
+  return recs;
+}
+let RC = [];
+function rcPreview() {
+  if (!RC.length) return `<div class="hint">把 Claude 给的导入码整段粘到上面，这里会先列出来给你看。</div>`;
+  const all = round2(RC.reduce((a, r) => a + r.total, 0));
+  return RC.map(r => `<div class="rc">
+      <div class="rch"><b>${esc(r.shop || "小票")}</b><span class="dim">${dayLabel(r.date)}${r.src === "cash" ? " · 现金" : ""}</span><b class="num">£${f2(r.total)}</b></div>
+      ${r.dup ? `<div class="rcw">这张好像已经记过了（同一家店、同一天、同样的总额），确定要再记一次吗？</div>` : ""}
+      ${r.lines.map(x => `<div class="rcl"><span>${esc(nameOf(x.cat))}${x.sub ? " · " + esc(subName(x.sub)) : ""}${x.note ? `<small>${esc(x.note)}</small>` : ""}${x.warn ? `<small class="bad">${esc(x.warn)}</small>` : ""}</span><span class="num">£${f2(x.amt)}</span></div>`).join("")}
+    </div>`).join("") + (RC.length > 1 ? `<div class="rcsum">${RC.length} 张一共 <b class="num">£${f2(all)}</b></div>` : "");
+}
+function openReceipt() {
+  RC = [];
+  modal(`<form class="rcf" data-form="rc" autocomplete="off"><div class="mhead"><p class="mt">粘贴小票</p><button type="button" class="x" data-close aria-label="关掉">×</button></div>
+    <textarea class="mono" name="t" rows="4" placeholder="把 Claude 给的导入码粘到这里"></textarea>
+    <div id="rcprev" class="mtop">${rcPreview()}</div>
+    <div class="two mtop"><button type="button" class="btn" data-act="openadd">手动记</button><button class="go" type="submit" disabled>记进账本</button></div></form>`,
+    box => {
+      const ta = box.querySelector("textarea"), go = box.querySelector("button[type=submit]");
+      ta.addEventListener("input", () => {
+        RC = parseReceipts(ta.value);
+        box.querySelector("#rcprev").innerHTML = ta.value.trim() && !RC.length ? `<div class="rcw">没认出来，确认一下是不是整段都粘进来了。</div>` : rcPreview();
+        go.disabled = !RC.length;
+        go.textContent = RC.length ? `记进账本（${RC.reduce((a, r) => a + r.lines.length, 0)} 笔）` : "记进账本";
+      });
+    });
+}
+actions.openrc = () => openReceipt();
+export function submitReceipt() {
+  if (!RC.length) return;
+  const snap = snapshot();
+  let n = 0, sum = 0;
+  for (const r of RC) for (const x of r.lines) {
+    addEntry({ date: r.date, amount: x.amt, cat: x.cat, sub: x.sub, src: r.src, note: [r.shop, x.note].filter(Boolean).join(" · "), meta: { rc: r.rc } });
+    n++; sum += x.amt;
+  }
+  RC = [];
+  $("#modal [data-close]")?.click();
+  ui.rerender();
+  toast(`记下了 ${n} 笔，共 £${f2(sum)}`, () => restoreSnap(snap));
 }
 
 /* ---------- 储蓄罐：每个月底把没花完的存进去 ---------- */

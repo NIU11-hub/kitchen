@@ -5,7 +5,7 @@ import { renderToday } from "./today.js";
 import { renderMenu } from "./menu.js";
 import { renderRecipes, submitRecipe } from "./recipes.js";
 import { renderShop } from "./shop.js";
-import { renderLedger, submitAdd, migrateLedger } from "./ledger.js";
+import { renderLedger, submitAdd, submitReceipt, migrateLedger } from "./ledger.js";
 
 const PAGES = { today: renderToday, menu: renderMenu, recipes: renderRecipes, shop: renderShop, ledger: renderLedger };
 const NAV = [["today", "今天"], ["menu", "菜单"], ["recipes", "食谱"], ["shop", "采购"], ["ledger", "记账"]];
@@ -44,6 +44,7 @@ document.addEventListener("input", e => { const el = e.target.closest("[data-chg
 document.addEventListener("submit", e => {
   const f = e.target;
   if (f.dataset.form === "add") { e.preventDefault(); submitAdd(f); }
+  if (f.dataset.form === "rc") { e.preventDefault(); submitReceipt(); }
   if (f.dataset.form === "recipe") { e.preventDefault(); submitRecipe(f); }
 });
 window.addEventListener("hashchange", () => { fromHash(); render(); });
