@@ -214,10 +214,10 @@ function findSub(c, v) {
   const k = String(v ?? "").trim(); if (!c || !k) return null;
   return (c.subs || []).find(s => s.id === k) || (c.subs || []).find(s => s.n === k) || null;
 }
-function parseReceipts(txt) {
-  const norm = txt.replace(/[“”]/g, '"');
+function parseReceipts(txt) { return normReceipts(scanObjects(txt.replace(/[“”]/g, '"'))); }
+function normReceipts(objs) {
   const recs = [];
-  for (const o of scanObjects(norm)) {
+  for (const o of objs) {
     if (!o || !Array.isArray(o.l)) continue;
     const date = /^\d{4}-\d{2}-\d{2}$/.test(o.d || "") ? o.d : today();
     const shop = String(o.s || "").trim();
@@ -280,6 +280,33 @@ export function submitReceipt() {
   $("#modal [data-close]")?.click();
   ui.rerender();
   toast(`记下了 ${n} 笔，共 £${f2(sum)}`, () => restoreSnap(snap));
+}
+
+/* ---------- Claude 直接记：Claude 把识别好的账推到 inbox.json，网站打开时自动记进来（每批只记一次） */
+export async function applyInbox() {
+  if (store.mode !== "cloud") return;
+  let box;
+  try { const r = await fetch("inbox.json", { cache: "no-cache" }); if (!r.ok) return; box = await r.json(); } catch (e) { return; }
+  const S = L().S; S.inbox = S.inbox || [];
+  const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id));
+  if (!todo.length) return;
+  const snap = snapshot();
+  let n = 0, sum = 0, paid = [];
+  for (const b of todo) {
+    for (const r of normReceipts(b.receipts || [])) for (const x of r.lines) {
+      addEntry({ date: r.date, amount: x.amt, cat: x.cat, sub: x.sub, src: r.src, note: [r.shop, x.note].filter(Boolean).join(" · "), meta: { rc: r.rc, ib: b.id } });
+      n++; sum += x.amt;
+    }
+    for (const nm of b.pay || []) {
+      const o = S.ones.find(z => !z.paid && z.n.toLowerCase().includes(String(nm).toLowerCase()));
+      if (!o) continue;
+      const x = addEntry({ date: b.payDate || today(), amount: +o.a || 0, cat: "__one", note: o.n });
+      o.paid = true; o.xid = x.id; paid.push(o.n);
+    }
+    S.inbox.push(b.id);
+  }
+  save(); ui.rerender();
+  toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}`, () => restoreSnap(snap));
 }
 
 /* ---------- 储蓄罐：每个月底把没花完的存进去 ---------- */

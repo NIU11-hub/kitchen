@@ -5,7 +5,7 @@ import { renderToday } from "./today.js";
 import { renderMenu } from "./menu.js";
 import { renderRecipes, submitRecipe } from "./recipes.js";
 import { renderShop } from "./shop.js";
-import { renderLedger, submitAdd, submitReceipt, migrateLedger } from "./ledger.js";
+import { renderLedger, submitAdd, submitReceipt, migrateLedger, applyInbox } from "./ledger.js";
 
 const PAGES = { today: renderToday, menu: renderMenu, recipes: renderRecipes, shop: renderShop, ledger: renderLedger };
 const NAV = [["today", "今天"], ["menu", "菜单"], ["recipes", "食谱"], ["shop", "采购"], ["ledger", "记账"]];
@@ -74,4 +74,6 @@ onChange(what => {
   catch (e) { console.error(e); $("#view").innerHTML = `<div class="notice bad">数据没加载出来：${e.message}</div>`; return; }
   migrateLedger();
   status(); render();
+  applyInbox();
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") applyInbox(); });
 })();

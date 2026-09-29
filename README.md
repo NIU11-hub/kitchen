@@ -23,3 +23,11 @@
 - 分类 id：grocery 超市（meat 肉蛋鱼虾 / veg 蔬菜水果 / staple 米面主食 / dairy 奶和蛋白 / pantry 调料罐头 / snack 零食饮料 / home 日用品）、eat 外食（party 聚餐 / mealdeal Meal Deal / coffee 咖啡外卖）、supp 补剂、trans 交通、phone 话费、fun 出门玩、other 其他
 - 规则：即食的算外食·Meal Deal；折扣按实付摊到对应东西；袋子钱算超市·日用品；超市买的蛋白粉维生素算补剂
 - 同一家店、同一天、同样总额的小票再粘会提醒可能重复
+
+## Claude 直接记（inbox.json）
+
+Claude 把识别好的账写进 `inbox.json` 推上来，网站打开（或切回页面）时自动记进账本，每批按 `id` 只记一次，记完弹提示可以撤销。
+
+- `receipts`：和上面粘贴小票同样的格式
+- `pay`：待付大额的名字（包含即可），标成已付；`payDate` 是付款日期
+- 新的一批就在 `batches` 里加一项、换一个新 `id`，旧的批次留着也不会重复记
