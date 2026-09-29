@@ -327,20 +327,26 @@ export function submitReceipt() {
 }
 
 /* ---------- Claude 直接记：Claude 把识别好的账推到 inbox.json，网站打开时自动记进来（每批只记一次） */
+let inboxBusy = false;
 export async function applyInbox() {
-  if (store.mode !== "cloud") return;
+  if (store.mode !== "cloud" || inboxBusy) return;
+  inboxBusy = true;
+  try { await applyInboxOnce(); } finally { inboxBusy = false; }
+}
+async function applyInboxOnce() {
   let box;
   try { const r = await fetch("inbox.json", { cache: "no-cache" }); if (!r.ok) return; box = await r.json(); } catch (e) { return; }
   const S = L().S; S.inbox = S.inbox || [];
   const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id));
   if (!todo.length) return;
   const snap = snapshot();
-  let n = 0, sum = 0, paid = [];
+  let n = 0, sum = 0, paid = [], skipped = 0;
   for (const b of todo) {
-    for (const r of normReceipts(b.receipts || [])) for (const x of r.lines) {
+    // 同一张小票（同店、同天、同总额）已经记过的就跳过，不管之前是粘贴的还是手记的
+    for (const r of normReceipts(b.receipts || [])) { if (r.dup) { skipped++; continue; } for (const x of r.lines) {
       addEntry({ date: r.date, amount: x.amt, cat: x.cat, sub: x.sub, src: r.src, note: [r.shop, x.note].filter(Boolean).join(" · "), meta: { rc: r.rc, ib: b.id } });
       n++; sum += x.amt;
-    }
+    } }
     for (const nm of b.pay || []) {
       const o = S.ones.find(z => !z.paid && z.n.toLowerCase().includes(String(nm).toLowerCase()));
       if (!o) continue;
@@ -350,7 +356,8 @@ export async function applyInbox() {
     S.inbox.push(b.id);
   }
   save(); ui.rerender();
-  toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}`, () => restoreSnap(snap));
+  if (!n && !paid.length) return;
+  toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${skipped ? `（${skipped} 张已经记过，跳过了）` : ""}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}`, () => restoreSnap(snap));
 }
 
 /* ---------- 储蓄罐：每个月底把没花完的存进去 ---------- */
