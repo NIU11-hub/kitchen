@@ -256,6 +256,7 @@ function scanObjects(txt) {
 function findCat(v) {
   const k = String(v ?? "").trim(), cats = L().S.cats;
   if (["stock", "囤货", "__stock"].includes(k)) return { id: "__stock", n: "囤货" };
+  if (["once", "一次性", "__one"].includes(k)) return { id: "__one", n: "一次性" };
   return cats.find(c => c.id === k) || cats.find(c => c.n === k) || null;
 }
 function parseReceipts(txt) { return normReceipts(scanObjects(txt.replace(/[“”]/g, '"'))); }
