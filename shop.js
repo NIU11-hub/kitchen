@@ -153,27 +153,29 @@ actions.receipt = () => {
   const { key, k } = sel, name = buildShop(key, k).trip.name;
   modal(`<form class="rcpt"><p class="mt">小票记账 · ${name}</p>
     <label>小票总额 £<input name="total" type="number" step="0.01" min="0" inputmode="decimal" class="num big" placeholder="0.00"></label>
-    <div class="flab">里面有零食或补剂的话填一下，没有就空着</div>
-    <div class="two nomt">
+    <div class="flab">里面有这些的话填一下，没有就空着</div>
+    <div class="grid3">
+      <label>囤货 £<input name="x_stock" type="number" step="0.01" min="0" inputmode="decimal" title="米、油、燕麦、大瓶调料"></label>
       <label>零食 £<input name="x_snack" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>补剂 £<input name="x_supp" type="number" step="0.01" min="0" inputmode="decimal"></label>
     </div>
+    <div class="hint">囤货是米、油、燕麦、大瓶调料这种一买吃很久的，不占每月吃饭预算。</div>
     <div class="hint" id="rcHint"></div>
     <div class="two mtop"><button type="button" class="btn" data-close>取消</button><button class="go" type="submit">记下</button></div></form>`,
     (box, close) => {
       const f = box.querySelector("form"), val = n => parseFloat(f[n].value) || 0;
-      const food = () => round2(val("total") - val("x_snack") - val("x_supp"));
+      const food = () => round2(val("total") - val("x_snack") - val("x_supp") - val("x_stock"));
       f.addEventListener("input", () => {
         const v = food();
-        $("#rcHint").innerHTML = val("total") ? (v < 0 ? `<span class="up">零食和补剂加起来比总额还多</span>` : `吃饭记 ${money(v)}`) : "";
+        $("#rcHint").innerHTML = val("total") ? (v < 0 ? `<span class="up">分出去的加起来比总额还多</span>` : `吃饭记 ${money(v)}`) : "";
       });
       f.onsubmit = e => {
         e.preventDefault();
         const total = val("total"); if (!(total > 0)) { toast("先填小票总额"); return; }
-        if (food() < 0) { toast("零食和补剂加起来比总额还多"); return; }
+        if (food() < 0) { toast("分出去的加起来比总额还多"); return; }
         const note = "Tesco " + name, meta = { receipt: `${key}:${k}` }, eids = [];
         const mk = (cat, v, nt) => { if (v > 0) eids.push(addEntry({ amount: v, cat, note: nt || note, meta }).id); };
-        mk("food", food()); mk("snack", val("x_snack")); mk("other", val("x_supp"), note + " · 补剂");
+        mk("food", food()); mk("__stock", val("x_stock"), note + " · 囤货"); mk("snack", val("x_snack")); mk("other", val("x_supp"), note + " · 补剂");
         S().receipts[`${key}:${k}`] = { total, eids };
         save(); close(); ui.rerender(); toast(`记下了 ${money(total)}`);
       };

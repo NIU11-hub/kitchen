@@ -82,7 +82,7 @@ export function goalOf(id) { return L().S.goals.find(g => g.id === id) || null; 
 export function subName() { return ""; }
 export function nameOf(id) {
   const g = goalOf(id); if (g) return "储蓄罐 · " + g.n;
-  if (id === "__one") return "一次性"; if (id === "__save") return "存进储蓄罐"; if (id === "__take") return "从储蓄罐取出";
+  if (id === "__one") return "一次性"; if (id === "__stock") return "囤货"; if (id === "__save") return "存进储蓄罐"; if (id === "__take") return "从储蓄罐取出";
   const c = catOf(id); return c ? c.n : "其他";
 }
 const isSpend = x => x.cat !== "__save" && x.cat !== "__take";
@@ -101,6 +101,8 @@ export function catBudget(c, m) {
 }
 export const monthlyBudget = () => L().S.cats.reduce((a, c) => a + (+c.a || 0), 0);
 
+// 吃饭是超了也得买的，不算进"花得快不快"的提醒；零食、交通、其他才算
+const MUST = new Set(["food", "phone"]);
 export function calc(month) {
   const S = L().S, E = L().E, t = today(), m = month || t.slice(0, 7);
   const byC = {}, byS = {}, byD = {};
@@ -112,8 +114,9 @@ export function calc(month) {
     if (x.date.slice(0, 7) !== m || (S.start && x.date < S.start)) continue;
     if (byC[x.cat] !== undefined) { byC[x.cat] += a; const d = +x.date.slice(8); byD[d] = (byD[d] || 0) + a; }
   }
-  let alloc = 0, spent = 0;
-  for (const c of S.cats) { alloc += catBudget(c, m); spent += byC[c.id] || 0; }
+  let alloc = 0, spent = 0, cAlloc = 0, cSpent = 0, stock = 0;
+  for (const c of S.cats) { alloc += catBudget(c, m); spent += byC[c.id] || 0; if (!MUST.has(c.id)) { cAlloc += catBudget(c, m); cSpent += byC[c.id] || 0; } }
+  for (const x of E) if (x.cat === "__stock" && x.date.slice(0, 7) === m) stock += +x.amount || 0;
   const [yy, mm] = m.split("-").map(Number);
   const dim = new Date(yy, mm, 0).getDate();
   const cur = m === t.slice(0, 7), past = m < t.slice(0, 7);
@@ -121,7 +124,7 @@ export function calc(month) {
   const dn = cur ? +t.slice(8) : past ? dim : 0;
   const span = dim - st + 1, done = Math.max(0, dn - st + 1);
   const pot = S.goals.reduce((a, g) => a + (+g.s || 0), 0);
-  return { m, byC, byS, byD, alloc, spent, left: round2(alloc - spent), dim, dn, st, dl: dim - dn + (cur ? 1 : 0), should: alloc * done / span,
+  return { m, byC, byS, byD, alloc, spent, cAlloc, cSpent, stock: round2(stock), left: round2(alloc - spent), dim, dn, st, dl: dim - dn + (cur ? 1 : 0), should: alloc * done / span,
     cash: (+S.cash || 0) + fc, card: (+S.card || 0) + fd, remain: (+S.cash || 0) + (+S.card || 0) + fc + fd, cur, pot };
 }
 export const unpaidTotal = () => L().S.ones.filter(o => !o.paid).reduce((a, o) => a + (+o.a || 0), 0);
@@ -174,6 +177,7 @@ const CAT_HINT = {
   trans: "公交、打车、大巴火车",
   phone: "每月话费",
   other: "补剂、聚餐、衣服护肤、出去玩",
+  __stock: "米、面粉、油、燕麦、大瓶调料、蛋白粉这种一买吃很久的，从手上的钱扣，不占每月预算",
 };
 const saveF = () => { try { localStorage.setItem(UIK, JSON.stringify(F)); } catch (e) {} };
 
@@ -186,13 +190,13 @@ function recentQuick() {
   const seen = new Set(), out = [], ok = new Set(openCats().map(k => k.id));
   for (const x of L().E) {
     if (out.length >= 6) break;
-    if (!x.note || !ok.has(x.cat) || x.meta) continue;
+    if (!x.note || !(ok.has(x.cat) || x.cat === "__stock") || x.meta) continue;
     const k = x.note + "|" + x.cat; if (seen.has(k)) continue; seen.add(k); out.push(x);
   }
   return out;
 }
 function formHtml() {
-  const cats = openCats();
+  const cats = [...openCats(), { id: "__stock", n: "囤货" }];
   if (!cats.some(k => k.id === F.cat)) F.cat = cats[0].id;
   const q = recentQuick();
   return `<div class="amtbox"><span class="cur">£</span><input class="bigin num" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" aria-label="金额"></div>
@@ -228,7 +232,7 @@ export function submitAdd(form) {
   const close = () => $("#modal [data-close]")?.click();
   const a = parseFloat(form.amount.value);
   if (!(a > 0)) { toast("先填金额"); form.amount.focus(); return; }
-  const cur = catOf(F.cat); if (!cur) { toast("先选一个分类"); return; }
+  const cur = F.cat === "__stock" ? { n: "囤货" } : catOf(F.cat); if (!cur) { toast("先选一个分类"); return; }
   const x = addEntry({ date: form.date.value || today(), amount: a, cat: F.cat, src: F.src, note: form.note.value.trim() });
   close();
   toast(`记下了 £${f2(a)} · ${cur.n}`, () => { removeEntry(x.id); ui.rerender(); });
@@ -251,6 +255,7 @@ function scanObjects(txt) {
 }
 function findCat(v) {
   const k = String(v ?? "").trim(), cats = L().S.cats;
+  if (["stock", "囤货", "__stock"].includes(k)) return { id: "__stock", n: "囤货" };
   return cats.find(c => c.id === k) || cats.find(c => c.n === k) || null;
 }
 function parseReceipts(txt) { return normReceipts(scanObjects(txt.replace(/[“”]/g, '"'))); }
@@ -453,7 +458,7 @@ function status(spent, budget, p) {
 
 // 首页和记账页共用：今天还能花多少
 export function heroCard(c) {
-  const st = status(c.spent, c.alloc, pace(c));
+  const st = status(c.cSpent, c.cAlloc, pace(c));
   const perDay = c.left > 0 ? c.left / Math.max(1, c.dl) : 0;
   const rw = c.cur ? runway() : null;
   return `<div class="hero2">
@@ -468,16 +473,16 @@ export function heroCard(c) {
 // 这个月的预算一根条：已花多少、还能花多少，竖线是按日子今天该花到哪
 function monthBar(c) {
   const a = c.alloc, sp = c.spent, p = pace(c), should = a * p;
-  const pct = a > 0 ? Math.min(100, sp / a * 100) : 0, st = status(sp, a, p);
+  const pct = a > 0 ? Math.min(100, sp / a * 100) : 0, st = status(c.cSpent, c.cAlloc, p);
   return `<div class="mbar ${st}">
     <div class="mbar-h"><span>这个月预算 <b class="num">£${f2(a)}</b></span></div>
     <div class="mbar-t"><i style="width:${pct.toFixed(1)}%"></i>${c.cur ? `<b style="left:${(p * 100).toFixed(1)}%"></b>` : ""}</div>
     <div class="mbar-l"><span>已花 <b class="num">£${f2(sp)}</b></span><span>${c.left < 0 ? `超了 <b class="num up">£${f2(-c.left)}</b>` : `还能花 <b class="num">£${f2(c.left)}</b>`}</span></div>
-    ${c.cur ? `<div class="hint">竖线是按日子到今天该花的 £${f2(should)}，${sp <= should ? "你现在在线的左边，花得不快" : "你已经过线了，这几天省着点"}。</div>` : ""}
+    ${c.cur ? `<div class="hint">竖线是按日子到今天该花的 £${f2(should)}。${st ? "零食、交通、其他花得偏快，这几天收着点。" : sp > should ? "超出来的主要是吃饭，该买照买。" : "花得不快。"}</div>` : ""}
   </div>`;
 }
-function bar(name, spent, budget, p, fixed, act) {
-  const stt = fixed ? "" : status(spent, budget, p), pct = budget > 0 ? Math.min(100, spent / budget * 100) : 0;
+function bar(name, spent, budget, p, fixed, act, soft) {
+  const stt = fixed || soft ? "" : status(spent, budget, p), pct = budget > 0 ? Math.min(100, spent / budget * 100) : 0;
   const left = budget - spent;
   const right = !(budget > 0) ? `花了 <b>£${f2(spent)}</b>` : fixed ? (spent >= budget - 0.004 ? `<b>已交 ✓</b>` : `还没交 <b>£${f2(budget)}</b>`)
     : left < -0.004 ? `超了 <b>£${f2(-left)}</b>` : `还剩 <b>£${f2(left)}</b><small> / ${f2(budget)}</small>`;
@@ -490,13 +495,14 @@ function catList(c) {
   for (const k of L().S.cats) {
     const a = catBudget(k, c.m), sp = c.byC[k.id] || 0;
     if (!(a > 0) && sp <= 0) continue;
-    h += bar(k.n, sp, a, p, k.id === "snack" ? false : k.fixed, `data-act="jfilter" data-id="${k.id}"`);
+    h += bar(k.n, sp, a, p, k.fixed, `data-act="jfilter" data-id="${k.id}"`, k.id === "food");
     if (k.id === "snack") {
       const xs = L().E.filter(x => x.cat === "snack" && x.date.slice(0, 7) === c.m);
       if (xs.length) h += `<div class="subnote">买了 ${xs.length} 次：${xs.slice(0, 8).map(x => esc(x.note.replace(/^[^·]*·\s*/, "") || "零食")).join("、")}${xs.length > 8 ? " …" : ""}</div>`;
     }
   }
-  return h + `<div class="hint legend"><span class="lg"><i></i>竖线 = 按日子今天该花到哪</span><span class="lg warn"><i></i>花得偏快</span><span class="lg bad"><i></i>超预算</span></div>`;
+  if (c.stock > 0) h += `<button class="cb" data-act="jfilter" data-id="__stock"><span class="nm">囤货</span><span class="hint">不占预算，从手上的钱扣</span><span class="r num">花了 <b>£${f2(c.stock)}</b></span></button>`;
+  return h + `<div class="hint">吃饭超了只提醒不标红，该买照买；零食、交通、其他花快了才变色。</div><div class="hint legend"><span class="lg"><i></i>竖线 = 按日子今天该花到哪</span><span class="lg warn"><i></i>花得偏快</span><span class="lg bad"><i></i>超预算</span></div>`;
 }
 // 手上的钱分成几块
 function overviewHtml(c) {
