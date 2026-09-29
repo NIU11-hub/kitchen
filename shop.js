@@ -105,8 +105,8 @@ export function renderShop(el) {
   const pre = `${key}:${k}:`;
   const done = r.buy.filter(x => sh.bought[pre + x.n]).length;
   const rc = sh.receipts[`${key}:${k}`];
-  const grocery = L().S.cats.find(c => c.id === "grocery");
-  const gLeft = (grocery ? catBudget(grocery) : 0) - (calc().byC.grocery || 0);
+  const food = L().S.cats.find(c => c.id === "food");
+  const gLeft = (food ? catBudget(food) : 0) - (calc().byC.food || 0);
   const days = r.trip.days.map(d => ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][d]).join("、");
   const weeks = [thisWeek(), addDays(thisWeek(), 7)];
   el.innerHTML = `<div class="pagehead"><h1>采购</h1>
@@ -119,7 +119,7 @@ export function renderShop(el) {
       <h3>这一趟买 ${days} 吃的</h3>
       <div class="bignum num">${money(r.pay + r.stockPay)}</div>
       <div class="hint">新鲜的 ${r.buy.length} 样约 ${money(r.pay)}${r.stockNeed.length ? `，囤货 ${r.stockNeed.length} 样约 ${money(r.stockPay)}（家里有的点「家里还有」就不算）` : ""}。${r.est ? `有 ${r.est} 样没查到具体商品，按同类价格估的。` : ""}</div>
-      <div class="hint mtop">超市这个月还剩 <b class="num ${gLeft < 0 ? "up" : ""}">${money(gLeft)}</b>。</div>
+      <div class="hint mtop">吃饭这个月还剩 <b class="num ${gLeft < 0 ? "up" : ""}">${money(gLeft)}</b>。</div>
       ${rc ? `<div class="paidbox">已记账 ${money(rc.total)} <button class="linkbtn" data-act="unreceipt">撤销</button></div>`
         : `<button class="go mtop" data-act="receipt">买完了，按小票记账</button>`}
     </div>
@@ -148,51 +148,34 @@ actions.clearbought = () => {
   save(); ui.rerender();
 };
 
-/* ---------- 小票拆账 ---------- */
-const SPLIT = [["meat", "肉蛋鱼虾"], ["veg", "蔬菜水果"], ["staple", "米面主食"], ["dairy", "奶和蛋白"], ["pantry", "调料罐头"], ["snack", "零食饮料"]];
+/* ---------- 小票记账：总额里扣掉零食和补剂，剩下都算吃饭 ---------- */
 actions.receipt = () => {
-  const { key, k } = sel, r = buildShop(key, k), est = r.bySub, name = r.trip.name;
+  const { key, k } = sel, name = buildShop(key, k).trip.name;
   modal(`<form class="rcpt"><p class="mt">小票记账 · ${name}</p>
     <label>小票总额 £<input name="total" type="number" step="0.01" min="0" inputmode="decimal" class="num big" placeholder="0.00"></label>
-    <div class="flab">清单上没有的，先单独填（没有就空着）</div>
-    <div class="grid3">
-      <label>零食饮料 £<input name="x_snack" type="number" step="0.01" min="0" inputmode="decimal"></label>
-      <label>日用品 £<input name="x_home" type="number" step="0.01" min="0" inputmode="decimal"></label>
+    <div class="flab">里面有零食或补剂的话填一下，没有就空着</div>
+    <div class="two nomt">
+      <label>零食 £<input name="x_snack" type="number" step="0.01" min="0" inputmode="decimal"></label>
       <label>补剂 £<input name="x_supp" type="number" step="0.01" min="0" inputmode="decimal"></label>
     </div>
-    <div class="flab">剩下的按清单估价拆开，不对可以直接改</div>
-    <div class="splits">${SPLIT.map(([id, n]) => `<label><span>${n}<small class="num">估 ${money(est[id] || 0)}</small></span><input name="s_${id}" type="number" step="0.01" min="0" inputmode="decimal" class="num"></label>`).join("")}</div>
     <div class="hint" id="rcHint"></div>
     <div class="two mtop"><button type="button" class="btn" data-close>取消</button><button class="go" type="submit">记下</button></div></form>`,
     (box, close) => {
-      const f = box.querySelector("form"), touched = new Set();
-      const val = n => parseFloat(f[n].value) || 0;
-      const recompute = () => {
-        const total = val("total"), extra = val("x_snack") + val("x_home") + val("x_supp");
-        const fixed = SPLIT.filter(([id]) => touched.has(id)), free = SPLIT.filter(([id]) => !touched.has(id));
-        const rest = round2(total - extra - fixed.reduce((a, [id]) => a + val("s_" + id), 0));
-        const w = free.reduce((a, [id]) => a + (est[id] || 0), 0);
-        let acc = 0;
-        free.forEach(([id], i) => {
-          let v = w > 0 ? round2(rest * (est[id] || 0) / w) : (i === 0 ? rest : 0);
-          if (i === free.length - 1) v = round2(rest - acc);
-          acc = round2(acc + v);
-          f["s_" + id].value = total ? Math.max(0, v).toFixed(2) : "";
-        });
-        const diff = round2(total - SPLIT.reduce((a, [id]) => a + val("s_" + id), 0) - extra);
-        $("#rcHint").innerHTML = total ? (Math.abs(diff) < 0.01 ? `合计对得上 ${money(total)}` : `<span class="up">还差 ${money(diff)} 没分出去</span>`) : "";
-      };
-      f.addEventListener("input", e => { if (e.target.name.startsWith("s_")) touched.add(e.target.name.slice(2)); recompute(); });
+      const f = box.querySelector("form"), val = n => parseFloat(f[n].value) || 0;
+      const food = () => round2(val("total") - val("x_snack") - val("x_supp"));
+      f.addEventListener("input", () => {
+        const v = food();
+        $("#rcHint").innerHTML = val("total") ? (v < 0 ? `<span class="up">零食和补剂加起来比总额还多</span>` : `吃饭记 ${money(v)}`) : "";
+      });
       f.onsubmit = e => {
         e.preventDefault();
         const total = val("total"); if (!(total > 0)) { toast("先填小票总额"); return; }
+        if (food() < 0) { toast("零食和补剂加起来比总额还多"); return; }
         const note = "Tesco " + name, meta = { receipt: `${key}:${k}` }, eids = [];
-        const mk = (cat, sub, v) => { if (v > 0) eids.push(addEntry({ amount: v, cat, sub, note, meta }).id); };
-        for (const [id] of SPLIT) mk("grocery", id, val("s_" + id) + (id === "snack" ? val("x_snack") : 0));
-        mk("grocery", "home", val("x_home"));
-        mk("supp", "", val("x_supp"));
+        const mk = (cat, v, nt) => { if (v > 0) eids.push(addEntry({ amount: v, cat, note: nt || note, meta }).id); };
+        mk("food", food()); mk("snack", val("x_snack")); mk("other", val("x_supp"), note + " · 补剂");
         S().receipts[`${key}:${k}`] = { total, eids };
-        save(); close(); ui.rerender(); toast(`记下了 ${money(total)}，拆成 ${eids.length} 笔`);
+        save(); close(); ui.rerender(); toast(`记下了 ${money(total)}`);
       };
     });
 };

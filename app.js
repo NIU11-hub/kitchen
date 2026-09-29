@@ -2,7 +2,7 @@ import { store, initStore, onChange } from "./store.js";
 import { $, $$, bindToast } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
 import { renderToday } from "./today.js";
-import { renderMenu } from "./menu.js";
+import { renderMenu, migrateMenu } from "./menu.js";
 import { renderRecipes, submitRecipe } from "./recipes.js";
 import { renderShop } from "./shop.js";
 import { renderLedger, submitAdd, submitReceipt, migrateLedger, applyInbox } from "./ledger.js";
@@ -62,6 +62,7 @@ document.body.insertAdjacentHTML("beforeend", `<button class="fab" data-act="ope
 onChange(what => {
   if (what === "status") { status(); return; }
   if (what === "ledger" || what === "all") migrateLedger();
+  if (what === "menu" || what === "all") migrateMenu();
   // 正在打字的时候别把输入框刷掉
   const ae = document.activeElement;
   if (ae && /INPUT|TEXTAREA|SELECT/.test(ae.tagName) && ae.closest("#view") && what !== "all") return;
@@ -72,7 +73,7 @@ onChange(what => {
   fromHash();
   try { await initStore(); }
   catch (e) { console.error(e); $("#view").innerHTML = `<div class="notice bad">数据没加载出来：${e.message}</div>`; return; }
-  migrateLedger();
+  migrateLedger(); migrateMenu();
   status(); render();
   applyInbox();
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") applyInbox(); });

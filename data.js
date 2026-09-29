@@ -18,7 +18,7 @@ export const RICE = { n: "熟米饭", kcal: 130, p: 2.7, c: 28.2, f: 0.3 };
 
 // 菜单里的特殊格子。聚餐的钱吃完再填；Meal Deal 固定 £4
 export const SPECIAL = {
-  eatout: { label: "出去聚餐", sub: "party", presets: [
+  eatout: { label: "出去聚餐", cat: "other", presets: [
     { name: "中餐聚餐（几个菜配米饭）", kcal: 1100, p: 50, c: 110, f: 50 },
     { name: "火锅", kcal: 1300, p: 60, c: 80, f: 80 },
     { name: "烤肉（韩式或日式）", kcal: 1200, p: 70, c: 70, f: 65 },
@@ -26,26 +26,21 @@ export const SPECIAL = {
     { name: "汉堡加薯条", kcal: 1200, p: 40, c: 120, f: 60 },
     { name: "披萨（半个大号）", kcal: 1100, p: 45, c: 130, f: 45 },
   ] },
-  mealdeal: { label: "Tesco Meal Deal", sub: "mealdeal", cost: 4, presets: [
+  mealdeal: { label: "Tesco Meal Deal", cat: "food", cost: 4, presets: [
     { name: "鸡肉三明治 + 蛋白小盒 + 无糖饮料", kcal: 550, p: 43, c: 41, f: 22 },
     { name: "鸡肉卷饼 + 薯片 + 零度可乐", kcal: 620, p: 30, c: 62, f: 26 },
     { name: "鸡肉意面沙拉 + 水果杯 + 奶昔", kcal: 760, p: 34, c: 96, f: 24 },
   ] },
-  custom: { label: "外卖 / 其他", sub: "coffee", presets: [{ name: "自己填", kcal: 600, p: 30, c: 60, f: 20 }] },
+  custom: { label: "外卖 / 其他", cat: "food", presets: [{ name: "自己填", kcal: 600, p: 30, c: 60, f: 20 }] },
 };
 
-// 记账分类。id 固定，采购拆账靠这些 id 对上
+// 记账分类（2026-09-29 起只分五类）。id 固定，采购记账和菜单外食靠这些 id 对上
 export const LEDGER_CATS = [
-  { id: "grocery", n: "超市", subs: [
-    { id: "meat", n: "肉蛋鱼虾" }, { id: "veg", n: "蔬菜水果" }, { id: "staple", n: "米面主食" },
-    { id: "dairy", n: "奶和蛋白" }, { id: "pantry", n: "调料罐头" }, { id: "snack", n: "零食饮料" },
-    { id: "home", n: "日用品" }] },
-  { id: "supp", n: "补剂", subs: [] },
-  { id: "eat", n: "外食", subs: [{ id: "party", n: "聚餐" }, { id: "mealdeal", n: "Meal Deal" }, { id: "coffee", n: "咖啡外卖" }] },
-  { id: "trans", n: "交通", subs: [{ id: "bus", n: "市内公交" }, { id: "coach", n: "大巴火车" }] },
-  { id: "fixed", n: "固定开支", subs: [{ id: "gym", n: "健身房" }, { id: "phone", n: "话费" }, { id: "subs", n: "订阅" }] },
-  { id: "shop", n: "购物", subs: [{ id: "skin", n: "护肤" }, { id: "clothes", n: "衣服" }, { id: "other", n: "其他" }] },
-  { id: "fun", n: "出门玩", subs: [] },
+  { id: "food", n: "吃饭" },    // 超市正经食材、水、日用品、Meal Deal、外卖正餐
+  { id: "snack", n: "零食" },   // 糖、巧克力、奶昔、可乐、奶茶、咖啡
+  { id: "trans", n: "交通" },
+  { id: "phone", n: "话费" },
+  { id: "other", n: "其他" },   // 补剂、聚餐、衣服护肤、出去玩
 ];
 
 // 采购清单分组 = 超市小类（列表里能自动算的那几类）

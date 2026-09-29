@@ -8,7 +8,8 @@ const save = () => saveDoc("ledger");
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
-  const d = L(); if (!d?.S || d.S.v >= 2) return false;
+  const d = L(); if (!d?.S || d.S.v >= 3) return false;
+  if (d.S.v >= 2) return migrateV3(d);
   const S = d.S, old = Object.fromEntries(S.cats.map(c => [c.id, c]));
   const g = old.grocery || { subs: [] };
   S.cats = [
@@ -29,13 +30,56 @@ export function migrateLedger() {
   if (ice) { ice.t = 1200; ice.due = "2026-12-01"; }
   S.start = S.start || "2026-09-27";
   S.v = 2;
+  return migrateV3(d);
+}
+
+/* ---------- 只分五类：吃饭、零食、交通、话费、其他 ---------- */
+// 水算吃饭；汽水、奶昔、咖啡奶茶算零食
+const SNACKY = /零食|糖|巧克|奶昔|可乐|汽水|雪碧|芬达|饮料|果汁|奶茶|咖啡|coffee|latte|冰淇淋|雪糕|薯片|饼干|蛋糕|甜/i;
+const WATER = /(^|[^汽])水(?!果)|water/i;
+// 旧的分类/小类 → 新的五类
+export function legacyCat(cat, sub, note) {
+  const n = note || "";
+  if (["food", "snack", "trans", "phone", "other"].includes(cat)) return cat;
+  if (cat === "grocery") {
+    if (sub === "snack") return WATER.test(n) && !SNACKY.test(n.replace(WATER, "")) ? "food" : "snack";
+    return "food";
+  }
+  if (cat === "eat") {
+    if (sub === "party") return "other";
+    if (sub === "coffee") return /咖啡|奶茶|coffee|latte/i.test(n) ? "snack" : "food";
+    return "food";
+  }
+  if (cat === "fixed") return sub === "phone" ? "phone" : "other";
+  return "other";   // supp、fun、shop 和不认识的
+}
+function migrateV3(d) {
+  const S = d.S, old = Object.fromEntries(S.cats.map(c => [c.id, c]));
+  const gSubs = old.grocery?.subs || [];
+  const gAll = gSubs.reduce((a, s) => a + (+s.a || 0), 0);
+  const gSnack = +(gSubs.find(s => s.id === "snack")?.a || 0);
+  S.cats = [
+    { id: "food", n: "吃饭", a: Math.round((gAll - gSnack) || 230) + 10 },
+    { id: "snack", n: "零食", a: 15 },
+    { id: "trans", n: "交通", a: old.trans?.a ?? 15 },
+    { id: "phone", n: "话费", a: 9, fixed: true },
+    { id: "other", n: "其他", a: old.fun?.a ?? 30 },
+  ];
+  for (const x of d.E) {
+    if (x.cat.startsWith("__") || S.goals.some(g => g.id === x.cat)) continue;
+    const was = x.sub;
+    x.cat = legacyCat(x.cat, x.sub, x.note);
+    if (was === "party" && !/聚餐/.test(x.note || "")) x.note = ["聚餐", x.note].filter(Boolean).join(" · ");
+    x.sub = "";
+  }
+  S.v = 3;
   save();
   return true;
 }
 
 export function catOf(id) { return L().S.cats.find(c => c.id === id) || null; }
 export function goalOf(id) { return L().S.goals.find(g => g.id === id) || null; }
-export function subName(id) { for (const c of L().S.cats) for (const s of c.subs || []) if (s.id === id) return s.n; return ""; }
+export function subName() { return ""; }
 export function nameOf(id) {
   const g = goalOf(id); if (g) return "储蓄罐 · " + g.n;
   if (id === "__one") return "一次性"; if (id === "__save") return "存进储蓄罐"; if (id === "__take") return "从储蓄罐取出";
@@ -50,26 +94,23 @@ function factor(c, m) {
   const [y, mo] = m.split("-").map(Number), dim = new Date(y, mo, 0).getDate();
   return (dim - +st.slice(8) + 1) / dim;
 }
-export function subBudget(c, s, m) { return c.subBudget ? round2((+s.a || 0) * factor(c, m)) : 0; }
 export function catBudget(c, m) {
   m = m || today().slice(0, 7);
   if (L().S.start && m < L().S.start.slice(0, 7)) return 0;
-  const base = c.subBudget ? (c.subs || []).reduce((a, s) => a + (+s.a || 0), 0) : (+c.a || 0);
-  return round2(base * factor(c, m));
+  return round2((+c.a || 0) * factor(c, m));
 }
-export const monthlyBudget = () => L().S.cats.reduce((a, c) => a + (c.subBudget ? (c.subs || []).reduce((b, s) => b + (+s.a || 0), 0) : (+c.a || 0)), 0);
+export const monthlyBudget = () => L().S.cats.reduce((a, c) => a + (+c.a || 0), 0);
 
 export function calc(month) {
   const S = L().S, E = L().E, t = today(), m = month || t.slice(0, 7);
   const byC = {}, byS = {}, byD = {};
-  for (const c of S.cats) { byC[c.id] = 0; for (const s of c.subs || []) byS[s.id] = 0; }
+  for (const c of S.cats) byC[c.id] = 0;
   let fc = 0, fd = 0;
   for (const x of E) {
     const a = +x.amount || 0, fl = flow(x);
     if (x.src === "cash") fc += fl; else fd += fl;
     if (x.date.slice(0, 7) !== m || (S.start && x.date < S.start)) continue;
     if (byC[x.cat] !== undefined) { byC[x.cat] += a; const d = +x.date.slice(8); byD[d] = (byD[d] || 0) + a; }
-    if (x.sub && byS[x.sub] !== undefined) byS[x.sub] += a;
   }
   let alloc = 0, spent = 0;
   for (const c of S.cats) { alloc += catBudget(c, m); spent += byC[c.id] || 0; }
@@ -125,10 +166,16 @@ function restoreSnap(s) { store.docs.ledger = JSON.parse(s); save(); ui.rerender
 
 /* ---------- + 记一笔（小窗，所有页面共用） ---------- */
 const UIK = "kitchen:ledgerui";
-let F = { cat: "grocery", sub: "meat", src: "card" };
+let F = { cat: "food", src: "card" };
 try { Object.assign(F, JSON.parse(localStorage.getItem(UIK) || "{}")); } catch (e) {}
+const CAT_HINT = {
+  food: "超市买菜买肉、水、日用品、Meal Deal、外卖正餐",
+  snack: "糖、巧克力、奶昔、可乐、奶茶咖啡这些想吃才买的",
+  trans: "公交、打车、大巴火车",
+  phone: "每月话费",
+  other: "补剂、聚餐、衣服护肤、出去玩",
+};
 const saveF = () => { try { localStorage.setItem(UIK, JSON.stringify(F)); } catch (e) {} };
-const SHOW_SUBS = ["grocery", "eat"];
 
 // 话费这种每月一次的，这个月交过了就不再出现在记一笔里
 function openCats() {
@@ -140,21 +187,19 @@ function recentQuick() {
   for (const x of L().E) {
     if (out.length >= 6) break;
     if (!x.note || !ok.has(x.cat) || x.meta) continue;
-    const k = x.note + "|" + x.cat + "|" + x.sub; if (seen.has(k)) continue; seen.add(k); out.push(x);
+    const k = x.note + "|" + x.cat; if (seen.has(k)) continue; seen.add(k); out.push(x);
   }
   return out;
 }
 function formHtml() {
   const cats = openCats();
   if (!cats.some(k => k.id === F.cat)) F.cat = cats[0].id;
-  const cur = catOf(F.cat), subs = SHOW_SUBS.includes(cur.id) ? cur.subs || [] : [];
-  if (subs.length && !subs.some(s => s.id === F.sub)) F.sub = subs[0].id;
   const q = recentQuick();
   return `<div class="amtbox"><span class="cur">£</span><input class="bigin num" name="amount" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" aria-label="金额"></div>
     ${q.length ? `<div class="quick">${q.map((x, i) => `<button type="button" data-act="quick" data-i="${i}">${esc(x.note)}</button>`).join("")}</div>` : ""}
     <div class="flab">分类</div>
     <div class="chips">${cats.map(k => `<button type="button" class="chip2" data-act="fcat" data-id="${k.id}" aria-pressed="${k.id === F.cat}">${esc(k.n)}</button>`).join("")}</div>
-    ${subs.length ? `<div class="chips mtop">${subs.map(s => `<button type="button" class="chip2 sm" data-act="fsub" data-id="${s.id}" aria-pressed="${s.id === F.sub}">${esc(s.n)}</button>`).join("")}</div>` : ""}
+    <div class="hint">${CAT_HINT[F.cat] || ""}</div>
     <div class="two">
       <label>日期<input name="date" type="date" value="${today()}"></label>
       <div><div class="flab">怎么付</div><div class="seg2">${[["card", "卡"], ["cash", "现金"]].map(([v, n]) => `<button type="button" data-act="fsrc" data-v="${v}" aria-pressed="${F.src === v}">${n}</button>`).join("")}</div></div>
@@ -173,11 +218,10 @@ function refreshForm() {
 }
 actions.openadd = () => openAdd();
 actions.fcat = el => { F.cat = el.dataset.id; saveF(); refreshForm(); };
-actions.fsub = el => { F.sub = el.dataset.id; saveF(); refreshForm(); };
 actions.fsrc = el => { F.src = el.dataset.v; saveF(); $$("[data-act=fsrc]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === F.src))); };
 actions.quick = el => {
   const x = recentQuick()[+el.dataset.i]; if (!x) return;
-  F.cat = x.cat; F.sub = x.sub || F.sub; F.src = x.src || "card"; saveF(); refreshForm();
+  F.cat = x.cat; F.src = x.src || "card"; saveF(); refreshForm();
   const f = $("form[data-form=add]"); f.note.value = x.note; f.amount.focus();
 };
 export function submitAdd(form) {
@@ -185,10 +229,9 @@ export function submitAdd(form) {
   const a = parseFloat(form.amount.value);
   if (!(a > 0)) { toast("先填金额"); form.amount.focus(); return; }
   const cur = catOf(F.cat); if (!cur) { toast("先选一个分类"); return; }
-  const sub = SHOW_SUBS.includes(cur.id) && (cur.subs || []).length ? F.sub : "";
-  const x = addEntry({ date: form.date.value || today(), amount: a, cat: F.cat, sub, src: F.src, note: form.note.value.trim() });
+  const x = addEntry({ date: form.date.value || today(), amount: a, cat: F.cat, src: F.src, note: form.note.value.trim() });
   close();
-  toast(`记下了 £${f2(a)} · ${sub ? subName(sub) : cur.n}`, () => { removeEntry(x.id); ui.rerender(); });
+  toast(`记下了 £${f2(a)} · ${cur.n}`, () => { removeEntry(x.id); ui.rerender(); });
   ui.rerender();
 }
 
@@ -210,10 +253,6 @@ function findCat(v) {
   const k = String(v ?? "").trim(), cats = L().S.cats;
   return cats.find(c => c.id === k) || cats.find(c => c.n === k) || null;
 }
-function findSub(c, v) {
-  const k = String(v ?? "").trim(); if (!c || !k) return null;
-  return (c.subs || []).find(s => s.id === k) || (c.subs || []).find(s => s.n === k) || null;
-}
 function parseReceipts(txt) { return normReceipts(scanObjects(txt.replace(/[“”]/g, '"'))); }
 function normReceipts(objs) {
   const recs = [];
@@ -227,11 +266,10 @@ function normReceipts(objs) {
       const [cv, sv, av, nv] = Array.isArray(r) ? r : [r.c, r.sub, r.a, r.n];
       const amt = round2(parseFloat(av));
       if (!(amt > 0)) continue;
-      let c = findCat(cv), warn = "";
+      const note = String(nv || "").trim();
+      let c = findCat(cv) || findCat(legacyCat(String(cv ?? "").trim(), String(sv ?? "").trim(), note)), warn = "";
       if (!c) { c = findCat("other"); warn = `没有「${cv}」这个分类，先放进其他`; }
-      const sub = findSub(c, sv);
-      if (sv && !sub && !warn && (c.subs || []).length) warn = `「${c.n}」下没有「${sv}」，只记大类`;
-      lines.push({ cat: c.id, sub: sub ? sub.id : "", amt, note: String(nv || "").trim(), warn });
+      lines.push({ cat: c.id, sub: "", amt, note, warn });
     }
     if (!lines.length) continue;
     const total = round2(lines.reduce((a, x) => a + x.amt, 0));
@@ -248,7 +286,7 @@ function rcPreview() {
   return RC.map(r => `<div class="rc">
       <div class="rch"><b>${esc(r.shop || "小票")}</b><span class="dim">${dayLabel(r.date)}${r.src === "cash" ? " · 现金" : ""}</span><b class="num">£${f2(r.total)}</b></div>
       ${r.dup ? `<div class="rcw">这张好像已经记过了（同一家店、同一天、同样的总额），确定要再记一次吗？</div>` : ""}
-      ${r.lines.map(x => `<div class="rcl"><span>${esc(nameOf(x.cat))}${x.sub ? " · " + esc(subName(x.sub)) : ""}${x.note ? `<small>${esc(x.note)}</small>` : ""}${x.warn ? `<small class="bad">${esc(x.warn)}</small>` : ""}</span><span class="num">£${f2(x.amt)}</span></div>`).join("")}
+      ${r.lines.map(x => `<div class="rcl"><span>${esc(nameOf(x.cat))}${x.note ? `<small>${esc(x.note)}</small>` : ""}${x.warn ? `<small class="bad">${esc(x.warn)}</small>` : ""}</span><span class="num">£${f2(x.amt)}</span></div>`).join("")}
     </div>`).join("") + (RC.length > 1 ? `<div class="rcsum">${RC.length} 张一共 <b class="num">£${f2(all)}</b></div>` : "");
 }
 function openReceipt() {
@@ -452,9 +490,11 @@ function catList(c) {
   for (const k of L().S.cats) {
     const a = catBudget(k, c.m), sp = c.byC[k.id] || 0;
     if (!(a > 0) && sp <= 0) continue;
-    h += bar(k.n, sp, a, p, k.fixed, `data-act="jfilter" data-id="${k.id}"`);
-    if (k.subBudget) h += `<div class="subs">${(k.subs || []).map(s => bar(s.n, c.byS[s.id] || 0, subBudget(k, s, c.m), p, false, `data-act="jfilter" data-id="${s.id}"`)).join("")}</div>`;
-    else if ((k.subs || []).some(s => c.byS[s.id])) h += `<div class="subnote">${k.subs.filter(s => c.byS[s.id]).map(s => `${esc(s.n)} £${f2(c.byS[s.id])}`).join(" · ")}</div>`;
+    h += bar(k.n, sp, a, p, k.id === "snack" ? false : k.fixed, `data-act="jfilter" data-id="${k.id}"`);
+    if (k.id === "snack") {
+      const xs = L().E.filter(x => x.cat === "snack" && x.date.slice(0, 7) === c.m);
+      if (xs.length) h += `<div class="subnote">买了 ${xs.length} 次：${xs.slice(0, 8).map(x => esc(x.note.replace(/^[^·]*·\s*/, "") || "零食")).join("、")}${xs.length > 8 ? " …" : ""}</div>`;
+    }
   }
   return h + `<div class="hint legend"><span class="lg"><i></i>竖线 = 按日子今天该花到哪</span><span class="lg warn"><i></i>花得偏快</span><span class="lg bad"><i></i>超预算</span></div>`;
 }
@@ -478,9 +518,9 @@ function journal(list) {
   for (const x of list) { if (!cur || cur.d !== x.date) { cur = { d: x.date, items: [], sum: 0 }; days.push(cur); } cur.items.push(x); if (isSpend(x) && !goalOf(x.cat)) cur.sum += +x.amount || 0; }
   return days.map(g => `<div class="day"><span>${dayLabel(g.d)}</span><span class="num">${g.sum > 0 ? "£" + f2(g.sum) : ""}</span></div>
     <div class="list">${g.items.map(y => {
-      const cat = nameOf(y.cat), sb = y.sub ? subName(y.sub) : "";
-      const title = esc(y.note || sb || cat);
-      const tag = [y.note ? cat : "", sb && y.note ? sb : "", y.src === "cash" ? "现金" : ""].filter(Boolean).join(" · ");
+      const cat = nameOf(y.cat);
+      const title = esc(y.note || cat);
+      const tag = [y.note ? cat : "", y.src === "cash" ? "现金" : ""].filter(Boolean).join(" · ");
       const inflow = y.cat === "__take", pot = y.cat === "__save" || goalOf(y.cat);
       return `<div class="jr"><span class="m">${title}${tag ? `<small>${esc(tag)}</small>` : ""}</span>
         <span class="a num ${inflow ? "in" : pot ? "pot" : ""}">${inflow ? "+" : ""}${f2(y.amount)}</span>
@@ -497,7 +537,7 @@ export function renderLedger(el) {
   if (showSet) { el.innerHTML = settingsHtml(); bindSettings(); return; }
   const c = calc(viewMonth), E = L().E;
   let list = E.filter(x => x.date.slice(0, 7) === viewMonth), fname = "";
-  if (jFilter) { list = list.filter(x => x.cat === jFilter || x.sub === jFilter); fname = subName(jFilter) || nameOf(jFilter); }
+  if (jFilter) { list = list.filter(x => x.cat === jFilter); fname = nameOf(jFilter); }
   const up = unpaidTotal(), first = L().S.start && c.m === L().S.start.slice(0, 7) && c.st > 1;
   const canNext = monthShift(viewMonth, 1) <= today().slice(0, 7);
   el.innerHTML = `<div class="pagehead"><h1>记账</h1>
@@ -544,12 +584,7 @@ function settingsHtml() {
   const row = (attr, id, n, v, ind, del) => `<div class="edit ${ind ? "ind" : ""}"><span class="n2">${esc(n)}</span>
     <input data-${attr}="${id}" type="number" min="0" step="1" inputmode="decimal" value="${+v || 0}" aria-label="${esc(n)}">${del ? `<button class="x" data-act="${del}" data-id="${id}" aria-label="删除 ${esc(n)}">×</button>` : "<span></span>"}</div>`;
   let cats = "";
-  for (const c of S.cats) {
-    if (c.subBudget) {
-      cats += `<div class="edit"><span class="n2"><b>${esc(c.n)}</b></span><span class="dim num">£${f2(catBudget(c, "9999-12"))}</span><span></span></div>`;
-      for (const s of c.subs) cats += row("es", s.id, s.n, s.a, true, "delsub");
-    } else cats += row("ec", c.id, c.n + ((c.subs || []).length ? `（${c.subs.map(s => s.n).join(" / ")}）` : ""), c.a, false, "");
-  }
+  for (const c of S.cats) cats += row("ec", c.id, c.n, c.a, false, "");
   return `<div class="pagehead"><h1>预算和备份</h1><div class="acts"><button class="btn" data-act="setback">← 回到记账</button></div></div>
   <div class="cols2">
     <div>
@@ -557,8 +592,6 @@ function settingsHtml() {
       <section class="card"><div class="two nomt"><label>卡 £<input id="sCard" type="number" step="0.01" value="${+S.card || 0}"></label><label>现金 £<input id="sCash" type="number" step="0.01" value="${+S.cash || 0}"></label></div></section>
       <h2>每月预算<span>0 表示只记不设预算 · 每月合计 £${f2(monthlyBudget())}</span></h2>
       <section class="card list flush">${cats}</section>
-      <section class="card mtop"><div class="flab nomt">给超市加一个细分</div>
-        <div class="addrow"><input id="nsN" placeholder="名字"><input id="nsA" type="number" placeholder="每月预算" inputmode="decimal"><button class="btn" data-act="addsub">加</button></div></section>
       <button class="go mtop" data-act="saveset">保存</button>
     </div>
     <div>
@@ -586,17 +619,10 @@ actions.saveset = () => {
   const S = L().S;
   S.cash = parseFloat($("#sCash").value) || 0; S.card = parseFloat($("#sCard").value) || 0;
   $$("[data-ec]").forEach(i => { const c = catOf(i.dataset.ec); if (c) c.a = parseFloat(i.value) || 0; });
-  $$("[data-es]").forEach(i => { for (const c of S.cats) for (const s of c.subs || []) if (s.id === i.dataset.es) s.a = parseFloat(i.value) || 0; });
   $$("[data-eg]").forEach(i => { const g = goalOf(i.dataset.eg); if (g) g.t = parseFloat(i.value) || 0; });
   $$("[data-eo]").forEach(i => { const o = S.ones.find(z => z.id === i.dataset.eo); if (o) o.a = parseFloat(i.value) || 0; });
   save(); ui.rerender(); toast("保存好了");
 };
-actions.addsub = () => {
-  const n = $("#nsN").value.trim(); if (!n) { toast("先填名字"); return; }
-  catOf("grocery").subs.push({ id: uid("s"), n, a: parseFloat($("#nsA").value) || 0 });
-  save(); ui.rerender(); toast("加好了");
-};
-actions.delsub = el => { const snap = snapshot(); for (const c of L().S.cats) c.subs = (c.subs || []).filter(s => s.id !== el.dataset.id); save(); ui.rerender(); toast("删了一个细分", () => restoreSnap(snap)); };
 actions.addgoal = () => { const n = $("#ngN").value.trim(); if (!n) { toast("先填名字"); return; } const a = parseFloat($("#ngA").value) || 0; L().S.goals.push({ id: uid("g"), n, t: a, s: 0, open: !(a > 0) }); save(); ui.rerender(); };
 actions.delgoal = el => { const snap = snapshot(); L().S.goals = L().S.goals.filter(g => g.id !== el.dataset.id); save(); ui.rerender(); toast("删了一个目标", () => restoreSnap(snap)); };
 actions.addone = () => { const n = $("#noN").value.trim(); if (!n) { toast("先填名目"); return; } L().S.ones.push({ id: uid("o"), n, a: parseFloat($("#noA").value) || 0, paid: false }); save(); ui.rerender(); };

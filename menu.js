@@ -26,6 +26,16 @@ export function entryN(e) {
 }
 export const dayN = d => SLOTS.reduce((a, s) => add(a, entryN(d?.[s.k])), ZERO);
 
+// 课表更新（只跑一次）：2026-09-29 周二加了会计研究项目讲座
+export function migrateMenu() {
+  const m = M(); if (!m || (m.cv || 0) >= 2) return;
+  m.classes = m.classes || [[], [], [], [], [], [], []];
+  m.dayNotes = m.dayNotes || ["", "", "", "", "", "", ""];
+  m.classes[1] = ["13:00–15:00 会计研究项目讲座"];
+  m.dayNotes[1] = "13–15 点有课，午饭课前吃；16–17 点训练";
+  m.cv = 2; save();
+}
+
 /* ---------- 按周存 ---------- */
 export const thisWeek = () => mondayOf(today());
 export function week(key, create) {
@@ -43,14 +53,26 @@ function pruneWeeks() {
 const hasRice = r => (r.ing || []).some(i => /米饭/.test(i.n));
 const MAIN = r => !["配菜", "加餐", "甜品", "早餐"].includes(r.cat) && r.slot !== "早餐";
 const quick = r => (r.diff === "简单" && (+r.mins || 0) <= 30);
+// 轮换：越久没吃的越优先，从来没排过的排最前。
+// 在最该轮到的前三分之一里随机挑一道，所以每周组合不一样，但池子里每道菜迟早都会轮到。
+let LAST = {};
 function pickFrom(pool, used, lastWeek, limit = 3) {
   const ok = pool.filter(r => (used[r.id] || 0) < limit);
   if (!ok.length) return null;
-  // 上周吃过的降低权重，用得少的优先
-  const w = ok.map(r => (lastWeek.has(r.id) ? 0.35 : 1) / (1 + (used[r.id] || 0) * 2));
-  let x = Math.random() * w.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < ok.length; i++) { x -= w[i]; if (x <= 0) return ok[i]; }
-  return ok[ok.length - 1];
+  const rank = ok.map(r => ({ r, u: used[r.id] || 0, t: LAST[r.id] || "", x: Math.random() }))
+    .sort((p, q) => p.u - q.u || (p.t < q.t ? -1 : p.t > q.t ? 1 : 0) || p.x - q.x);
+  const top = rank.slice(0, Math.max(2, Math.ceil(rank.length / 3)));
+  return top[Math.floor(Math.random() * top.length)].r;
+}
+// 每道菜最近一次排在哪天（生成这周时，这周还没过的几天不算）
+function refreshLast(key) {
+  const m = M(); m.last = m.last || {};
+  for (const [wk, w] of Object.entries(m.weeks || {})) w.days.forEach((d, di) => {
+    const date = addDays(wk, di);
+    if (wk === key && date >= today()) return;
+    for (const e of Object.values(d)) if (e?.r && !(m.last[e.r] >= date)) m.last[e.r] = date;
+  });
+  LAST = m.last;
 }
 function riceFor(r, slotK) {
   const s = SLOTS.find(z => z.k === slotK);
@@ -59,6 +81,7 @@ function riceFor(r, slotK) {
   return Math.max(0, Math.min(350, Math.round(need / 50) * 50));
 }
 export function generate(key) {
+  refreshLast(key);
   const w = week(key, true), m = M(), train = m.train || [0, 1, 3, 4];
   const all = store.recipes;
   const prev = week(addDays(key, -7));
@@ -264,18 +287,18 @@ changes.swap = el => {
 changes.preset = el => { const { d, k } = cell(el); const e = d[k]; const p = SPECIAL[e.custom.kind].presets[+el.value]; if (p) { e.custom = { ...e.custom, ...p, edited: false }; save(); ui.rerender(); } };
 changes.spnum = el => { const { d, k } = cell(el); const e = d[k]; e.custom[el.dataset.key] = Math.max(0, Math.min(5000, +el.value || 0)); if (e.custom.kind !== "custom") e.custom.edited = true; save(); ui.rerender(); };
 
-function markPaid(c, amt, sub, note) {
-  const x = addEntry({ date: addDays(c.key, c.di) > today() ? today() : addDays(c.key, c.di), amount: amt, cat: "eat", sub, note, meta: { menu: `${c.key}/${c.di}/${c.k}` } });
+function markPaid(c, amt, cat, note) {
+  const x = addEntry({ date: addDays(c.key, c.di) > today() ? today() : addDays(c.key, c.di), amount: amt, cat, note, meta: { menu: `${c.key}/${c.di}/${c.k}` } });
   c.d[c.k].custom.paid = { amt, eid: x.id };
-  save(); ui.rerender(); toast(`记下了 ${money(amt)} · 外食`);
+  save(); ui.rerender(); toast(`记下了 ${money(amt)} · ${cat === "food" ? "吃饭" : "其他"}`);
 }
-actions.paymeal = el => { const c = cell(el); markPaid(c, SPECIAL.mealdeal.cost, "mealdeal", "Tesco Meal Deal"); };
+actions.paymeal = el => { const c = cell(el); markPaid(c, SPECIAL.mealdeal.cost, "food", "Tesco Meal Deal"); };
 actions.payout = el => {
   const c = cell(el), cu = c.d[c.k].custom;
   modal(`<form><p class="mt">${esc(cu.name)} 实际付了多少？AA 后自己那份</p><input name="v" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0.00" class="num">
     <div class="two mtop"><button type="button" class="btn" data-close>取消</button><button class="go" type="submit">记下</button></div></form>`,
     (box, close) => box.querySelector("form").onsubmit = e => { e.preventDefault(); const v = parseFloat(e.target.v.value); if (!(v > 0)) return; close();
-      markPaid(c, v, cu.kind === "custom" ? "coffee" : "party", cu.kind === "custom" ? cu.name : "聚餐 · " + cu.name); });
+      markPaid(c, v, SPECIAL[cu.kind]?.cat || "food", cu.kind === "custom" ? cu.name : "聚餐 · " + cu.name); });
 };
 actions.unpay = el => { const c = cell(el); const cu = c.d[c.k].custom; if (cu?.paid) { removeEntry(cu.paid.eid); delete cu.paid; save(); ui.rerender(); toast("撤销了"); } };
 
@@ -313,7 +336,7 @@ export function eatOutModal(key, di, k) {
         ev.preventDefault(); const f = ev.target, amt = parseFloat(f.v.value);
         if (!(amt > 0)) { toast("先填花了多少"); return; }
         const sp = SPECIAL[kind], p = sp.presets[0], nm = f.n.value.trim() || p.name;
-        const x = addEntry({ date: addDays(key, di) > today() ? today() : addDays(key, di), amount: amt, cat: "eat", sub: sp.sub, note: kind === "eatout" ? "聚餐 · " + nm : kind === "mealdeal" ? "Meal Deal" : nm, meta: { menu: `${key}/${di}/${k}` } });
+        const x = addEntry({ date: addDays(key, di) > today() ? today() : addDays(key, di), amount: amt, cat: sp.cat, note: kind === "eatout" ? "聚餐 · " + nm : kind === "mealdeal" ? "Meal Deal" : nm, meta: { menu: `${key}/${di}/${k}` } });
         let msg = `记下了 ${money(amt)}`;
         if (r) {
           if (boughtFor(key, di)) { pushLater(key, di, k, { r: e.r, rice: e.rice }); msg += `，「${r.name}」往后挪了一顿`; }
