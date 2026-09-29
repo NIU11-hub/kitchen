@@ -59,7 +59,7 @@ export function buildShop(key, k) {
   (w?.days || []).forEach((d, di) => { for (const s of SLOTS) {
     const e = d?.[s.k]; if (!e || e.custom) continue;
     const r = store.byId[e.r];
-    if (r) for (const i of r.ing || []) put(i, 1 / (r.base || 1), r.name, di);
+    if (r) for (const i of r.ing || []) put(i, s.opt ? 1 : 1 / (r.base || 1), r.name, di);   // 甜品整份做，材料按整个方子买
     if (e.rice) put({ n: "熟米饭", g: e.rice }, 1, "配米饭", di);
   } });
   const pantry = S().pantry;

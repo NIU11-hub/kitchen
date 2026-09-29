@@ -119,7 +119,7 @@ changes.slot = el => { st.slot[ui.sel] = el.value; ui.rerender(); };
 /* 排进菜单 */
 actions.plan = () => {
   const r = store.byId[ui.sel]; if (!r) return;
-  const defSlot = SLOT_BY_NAME[r.slot] ? SLOT_BY_NAME[r.slot].k : "d";
+  const defSlot = r.cat === "甜品" ? "x" : SLOT_BY_NAME[r.slot] ? SLOT_BY_NAME[r.slot].k : "d";
   const td = (new Date().getDay() + 6) % 7;
   modal(`<form><p class="mt">把「${esc(r.name)}」排进哪一格？</p>
     <div class="two"><label>哪周<select name="w"><option value="0">本周</option><option value="1">下周</option></select></label>

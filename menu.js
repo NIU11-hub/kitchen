@@ -174,9 +174,12 @@ function bar(label, v, target, color, lo) {
 }
 export function recipeOptions(cur, slot) {
   const list = c => store.recipes.filter(r => r.cat === c);
-  const fit = slot ? store.recipes.filter(r => r.slot === slot) : [];
-  return `${cur ? `<option value="__clear">✕ 清空这一格</option>` : `<option value="" selected disabled>选一道…</option>`}
-    ${fit.length ? `<optgroup label="常作${slot}的">${fit.map(r => `<option value="${esc(r.id)}" ${r.id === cur ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</optgroup>` : ""}<optgroup label="特殊情况">${Object.entries(SPECIAL).map(([k, v]) => `<option value="__${k}" ${cur === "__" + k ? "selected" : ""}>${v.label}</option>`).join("")}</optgroup>` +
+  const sweet = slot === "甜品";
+  const fit = sweet ? list("甜品") : slot ? store.recipes.filter(r => r.slot === slot) : [];
+  const head = `${cur ? `<option value="__clear">✕ 清空这一格</option>` : `<option value="" selected disabled>${sweet ? "想吃哪个…" : "选一道…"}</option>`}
+    ${fit.length ? `<optgroup label="${sweet ? "甜品" : "常作" + slot + "的"}">${fit.map(r => `<option value="${esc(r.id)}" ${r.id === cur ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</optgroup>` : ""}`;
+  if (sweet) return head;
+  return `${head}<optgroup label="特殊情况">${Object.entries(SPECIAL).map(([k, v]) => `<option value="__${k}" ${cur === "__" + k ? "selected" : ""}>${v.label}</option>`).join("")}</optgroup>` +
     CATS.map(c => list(c).length ? `<optgroup label="${c}">${list(c).map(r => `<option value="${esc(r.id)}" ${r.id === cur ? "selected" : ""}>${esc(r.name)}</option>`).join("")}</optgroup>` : "").join("");
 }
 export function specialBox(key, di, k, cu, compact) {
@@ -210,7 +213,8 @@ export function renderMenu(el) {
     <li>训练日（周一、二、四、五）晚饭只抽 30 分钟以内或提前备好的。</li>
     <li>周三可以抽中等难度的；周六、周日抽费事的，也是做好吃的那两天。</li>
     <li>工作日午饭一次做两顿：周一二同一道、周四五同一道。</li>
-    <li>早餐从早餐碗里轮换；同一道菜一周最多 3 次；上周吃过的少抽。</li>
+    <li>每道菜轮着来：越久没吃的越先排，同一道菜一周最多 3 次。</li>
+    <li>甜品格自动排不会碰，想吃那天自己选一道；材料会进采购清单，按整个方子买。</li>
     <li>米饭按每餐热量目标自动配，面食不配。点 🔒 锁住的格子不会被换。</li>
   </ul></details>
   ${!w ? `<div class="notice">这周还没排。点上面「随机生成」，或者在下面一格一格选。</div>` : ""}
@@ -230,7 +234,7 @@ export function renderMenu(el) {
   </div>
   ${w ? `<section class="week"><h2>一周总览</h2><div class="scroll card flush"><table class="wt">
     <thead><tr><th></th>${DAYS.map((x, i) => `<th>${x}<small>${fmtMD(addDays(key, i))}</small></th>`).join("")}</tr></thead><tbody>
-    ${SLOTS.map(s => `<tr><td class="s">${s.name}</td>${w.days.map(dd => { const e = dd?.[s.k]; const r = e && store.byId[e.r];
+    ${SLOTS.filter(s => !s.opt || w.days.some(dd => dd?.[s.k])).map(s => `<tr><td class="s">${s.name}</td>${w.days.map(dd => { const e = dd?.[s.k]; const r = e && store.byId[e.r];
       if (e?.custom) return `<td><span class="sp-tag">${esc(SPECIAL[e.custom.kind]?.label || "特殊")}</span></td>`;
       return `<td>${r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}">${esc(r.name)}</a>${e.rice ? `<div class="hint">+米饭 ${e.rice}g</div>` : ""}` : "–"}</td>`; }).join("")}</tr>`).join("")}
     <tr class="tot"><td class="s">合计</td>${w.days.map(dd => { const x = dayN(dd); return `<td>${r0(x.kcal)} kcal<div class="hint">P ${r0(x.p)} · C ${r0(x.c)} · F ${r0(x.f)}</div></td>`; }).join("")}</tr>
@@ -244,14 +248,14 @@ function mealRow(key, di, s, e) {
     <div class="slot">${s.name}${s.hint ? `<small>${s.hint}</small>` : ""}</div>
     <div class="dish">
       ${cu ? `<span class="sp-name"><span class="sp-tag">${esc(SPECIAL[cu.kind]?.label || "特殊")}</span>${esc(cu.name)}</span>`
-        : r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}"><span class="dot"></span>${esc(r.name)}</a>` : `<span class="hint">没排</span>`}
+        : r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}"><span class="dot"></span>${esc(r.name)}</a>` : `<span class="hint">${s.opt ? "不吃就空着" : "没排"}</span>`}
       ${cu ? specialBox(key, di, s.k, cu) : ""}
       ${s.rice && r ? `<div class="extra">配米饭 <span class="stepper sm"><button data-act="rice" data-w="${key}" data-d="${di}" data-k="${s.k}" data-v="-50" aria-label="米饭减 50 克">−</button><span>${e.rice || 0}g</span><button data-act="rice" data-w="${key}" data-d="${di}" data-k="${s.k}" data-v="50" aria-label="米饭加 50 克">+</button></span></div>` : ""}
     </div>
     <div class="num-r"><b>${r0(en.kcal)}</b> kcal · P ${r0(en.p)}</div>
     <div class="swaprow">
       <select data-chg="swap" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-label="换${s.name}">${recipeOptions(cur, s.name)}</select>
-      ${e.r && !cu && s.k !== "s" && s.k !== "n" ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}
+      ${e.r && !cu && !s.opt && s.k !== "s" && s.k !== "n" ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}
       ${(e.r || cu) ? `<button class="lock ${e.lock ? "on" : ""}" data-act="lock" data-w="${key}" data-d="${di}" data-k="${s.k}" aria-pressed="${!!e.lock}" title="${e.lock ? "已锁定，随机生成不会换" : "锁定这一格"}">${e.lock ? "🔒" : "🔓"}</button>` : ""}
     </div>
   </div>`;

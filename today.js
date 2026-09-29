@@ -25,14 +25,14 @@ export function renderToday(el) {
     <div>
       <section class="card">
         <div class="cardh"><h3>今天吃什么</h3><button class="linkbtn" data-act="gomenu">去菜单改</button></div>
-        ${w ? `<div class="todaymeals">${SLOTS.map(s => {
+        ${w ? `<div class="todaymeals">${SLOTS.filter(s => !s.opt || d[s.k]).map(s => {
           const e = d[s.k], r = e && store.byId[e.r], en = entryN(e);
           const cu = e?.custom;
           return `<div class="tm"><span class="slot">${s.name}</span>
             <span class="dish">${cu ? `<span class="sp-tag">${esc(SPECIAL[cu.kind]?.label)}</span> ${esc(cu.name)} ${specialBox(key, di, s.k, cu, true)}`
               : r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}"><span class="dot cat-${esc(r.cat)}"></span>${esc(r.name)}</a>${e.rice ? `<small>+米饭 ${e.rice}g</small>` : ""}` : `<span class="hint">没排</span>`}</span>
             <span class="tmr-r"><span class="num-r">${en.kcal ? `${r0(en.kcal)} kcal · P ${r0(en.p)}` : ""}</span>
-              ${!cu && e?.r && s.k !== "s" && s.k !== "n" ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}</span></div>`; }).join("")}</div>
+              ${!cu && e?.r && !s.opt && s.k !== "s" && s.k !== "n" ? `<button class="mini" data-act="eatout" data-w="${key}" data-d="${di}" data-k="${s.k}">改吃外面</button>` : ""}</span></div>`; }).join("")}</div>
           <div class="daysum num">合计 <b>${r0(n.kcal)}</b> / ${DAY.kcal} kcal · 蛋白 <b>${r0(n.p)}</b> / ${DAY.pLo}–${DAY.pHi} g</div>`
         : `<div class="notice">今天还没排。<button class="go sm" data-act="gentrip" data-w="${key}">${di === 6 ? "随机排今天" : "随机排今天到周日"}</button></div>`}
       </section>

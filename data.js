@@ -8,6 +8,7 @@ export const SLOTS = [
   { k: "s", name: "练后", hint: "休息日下午吃", t: { kcal: 260, p: 25 } },
   { k: "d", name: "晚餐", t: { kcal: 850, p: 48 }, rice: true },
   { k: "n", name: "睡前", t: { kcal: 170, p: 15 } },
+  { k: "x", name: "甜品", opt: true, hint: "想吃了再加", t: { kcal: 0, p: 0 } },   // 自动排菜不碰，空着时首页不显示
 ];
 export const SLOT_BY_NAME = Object.fromEntries(SLOTS.map(s => [s.name, s]));
 export const DAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
@@ -54,6 +55,7 @@ const SKIP = /^(清水|水|冰水|开水|温水|热水|热油|无菌蛋黄)$/;
 export function ingSub(n) {
   if (SKIP.test(n)) return null;
   if (/蛋白粉/.test(n)) return "supp";
+  if (/淡奶油|鲜奶油|奶油奶酪/.test(n)) return "dairy";   // 名字以「油」结尾但是冷藏的奶
   if (/面粉|玉米粉|河粉/.test(n)) return "staple";
   if (/抽$|腌料|酒酿|罐头|高汤|鸡汤|蛋黄酱|沙拉酱|酱$|酱油|酱黄芥末|豆瓣|味噌|味淋|鱼露|豉|腐乳|南乳|调料包|咖喱|醋|料酒|清酒|米酒|酒$|葡萄酒|白兰地|啤酒|可乐|淀粉|粉$|粉\/|粉和|粉孜然|粉蒜粉|糖|蜂蜜|桂花蜜|盐|胡椒|孜然|花椒|八角|桂皮|香叶|香草|迷迭香|百里香|罗勒|薄荷|莳萝|芝麻|油$|香料|酵母|泡打粉|小苏打|吉利丁|辣椒面|辣皮子|干辣椒|番茄膏|番茄泥|番茄沙司|番茄酱|椰浆|陈皮|五指毛桃|芥末|紫菜|海带芽|虾皮|干香菇|木耳|奇亚籽|代糖/.test(n)) return "pantry";
   if (/巧克|黑巧|奥利奥|坚果|核桃|花生米|蔓越莓/.test(n)) return "snack";
