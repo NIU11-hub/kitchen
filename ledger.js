@@ -2,6 +2,7 @@
 import { store, saveDoc, listBackups, restoreBackup, exportAll, importDocs } from "./store.js";
 import { $, $$, esc, f2, money, round2, uid, today, dayLabel, parse, iso, toast, modal } from "./util.js";
 import { actions, ui } from "./ui.js";
+import { addInv } from "./shop.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
@@ -340,13 +341,16 @@ async function applyInboxOnce() {
   const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id));
   if (!todo.length) return;
   const snap = snapshot();
-  let n = 0, sum = 0, paid = [], skipped = 0;
+  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0;
   for (const b of todo) {
     // 同一张小票（同店、同天、同总额）已经记过的就跳过，不管之前是粘贴的还是手记的
     for (const r of normReceipts(b.receipts || [])) { if (r.dup) { skipped++; continue; } for (const x of r.lines) {
       addEntry({ date: r.date, amount: x.amt, cat: x.cat, sub: x.sub, src: r.src, note: [r.shop, x.note].filter(Boolean).join(" · "), meta: { rc: r.rc, ib: b.id } });
       n++; sum += x.amt;
     } }
+    // 买回来的东西记进家里的库存；囤货类标「家里还有」
+    if (b.inv?.length) { addInv(b.inv, b.invFrom || today()); inv += b.inv.length; }
+    if (b.have?.length) { const P = store.docs.shop.pantry = store.docs.shop.pantry || {}; for (const n of b.have) P[n] = 1; saveDoc("shop"); }
     for (const nm of b.pay || []) {
       const o = S.ones.find(z => !z.paid && z.n.toLowerCase().includes(String(nm).toLowerCase()));
       if (!o) continue;
@@ -356,7 +360,7 @@ async function applyInboxOnce() {
     S.inbox.push(b.id);
   }
   save(); ui.rerender();
-  if (!n && !paid.length) return;
+  if (!n && !paid.length) { if (inv) toast(`家里的库存更新了 ${inv} 样`); return; }
   toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${skipped ? `（${skipped} 张已经记过，跳过了）` : ""}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}`, () => restoreSnap(snap));
 }
 

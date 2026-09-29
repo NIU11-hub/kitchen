@@ -3,10 +3,41 @@ import { store, saveDoc } from "./store.js";
 import { SLOTS, PACKS, EST_PER_KG, BULK, KEEP, TRIPS, SHOP_GROUPS, ingSub, shopName } from "./data.js";
 import { $, esc, r1, f2, money, round2, today, addDays, dow, fmtMD, toast, modal } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
-import { week, thisWeek } from "./menu.js";
+import { week, thisWeek, M } from "./menu.js";
 import { L, catBudget, calc, addEntry, removeEntry } from "./ledger.js";
 
-const S = () => { const s = store.docs.shop; s.bought = s.bought || {}; s.pantry = s.pantry || {}; s.receipts = s.receipts || {}; return s; };
+const S = () => { const s = store.docs.shop; s.bought = s.bought || {}; s.pantry = s.pantry || {}; s.receipts = s.receipts || {}; s.inv = s.inv || {}; return s; };
+
+/* ---------- 家里的库存 ----------
+   inv[名字] = { g: 买回来时有多少克, from: 从哪天的饭开始算消耗 }
+   还剩多少 = g − 菜单上 from 那天起到某天之前吃掉的量。菜单换了，剩多少跟着变。 */
+// 同一样东西在不同菜里叫法不一样，库存按一个名字算
+const ALIAS = { "切达芝士": "芝士片", "希腊酸奶": "0脂希腊酸奶", "青豆": "冷冻豌豆", "青豆/玉米粒": "冷冻豌豆", "牛肉末": "牛肉末（5% 脂肪）", "瘦牛肉末": "牛肉末（5% 脂肪）" };
+export const invName = n => ALIAS[n] || n;
+// 菜单上 [from, to) 这几天一共要吃掉多少（按采购用的名字）
+function usage(from, to) {
+  const out = {}, weeks = M().weeks || {};
+  for (const [wk, w] of Object.entries(weeks)) (w.days || []).forEach((d, di) => {
+    const date = addDays(wk, di); if (date < from || date >= to) return;
+    for (const sl of SLOTS) {
+      const e = d?.[sl.k]; if (!e || e.custom) continue;
+      const r = store.byId[e.r], add = (i, f) => { const sn = shopName(i.n); if (!sn) return; const k = invName(sn.n); out[k] = (out[k] || 0) + (i.g || 0) * f * sn.f; };
+      if (r) for (const i of r.ing || []) add(i, sl.opt ? 1 : 1 / (r.base || 1));
+      if (e.rice) add({ n: "熟米饭", g: e.rice }, 1);
+    }
+  });
+  return out;
+}
+export function invLeft(n, before) {
+  const it = S().inv[invName(n)]; if (!it) return 0;
+  return Math.max(0, (+it.g || 0) - (usage(it.from, before)[invName(n)] || 0));
+}
+// 买回来一批：先算出这样东西现在还剩多少，再加上新买的，从 from 那天重新算
+export function addInv(list, from) {
+  const inv = S().inv;
+  for (const [n0, g] of list) { const n = invName(n0); const left = inv[n] ? invLeft(n, from) : 0; inv[n] = { g: Math.round(left + (+g || 0)), from }; }
+  save();
+}
 const save = () => saveDoc("shop");
 
 // 下一趟采购：今天就是采购日就算今天
@@ -63,14 +94,23 @@ export function buildShop(key, k) {
     if (e.rice) put({ n: "熟米饭", g: e.rice }, 1, "配米饭", di);
   } });
   const pantry = S().pantry;
+  // 家里现有的先扣掉：算到这一趟第一天之前还剩多少
+  const start = addDays(key, Math.min(...trip.days)), have = [];
+  for (const x of fresh.values()) {
+    const left = invLeft(x.n, start); if (!(left > 0)) continue;
+    const use = Math.min(left, x.g), k = x.g > 0 ? use / x.g : 0;
+    x.home = use; if (x.cnt) x.cnt *= 1 - k; x.g -= use;
+    if (x.g < 1) { fresh.delete(x.n); have.push({ ...x, g: use }); }
+  }
+  const homeStock = new Set([...stock.values()].filter(x => invLeft(x.n, start) >= x.g).map(x => x.n));
   const buy = [...fresh.values()];
   let pay = 0, est = 0; const bySub = {};
   for (const x of buy) { const c = cost(x); pay += c.pay; bySub[x.sub] = (bySub[x.sub] || 0) + c.pay; if (c.est) est++; }
   const stockAll = [...stock.values()];
-  const stockNeed = stockAll.filter(x => !pantry[x.n] && PACKS[x.n]);
+  const stockNeed = stockAll.filter(x => !pantry[x.n] && !homeStock.has(x.n) && PACKS[x.n]);
   let stockPay = 0; for (const x of stockNeed) { const c = cost(x); stockPay += c.pay; bySub[x.sub] = (bySub[x.sub] || 0) + c.pay; }
   const groups = SHOP_GROUPS.filter(g => g.id !== "pantry" && g.id !== "supp").map(g => ({ ...g, items: buy.filter(x => x.sub === g.id).sort((p, q) => q.g - p.g) })).filter(g => g.items.length);
-  return { trip, groups, buy, pay, est, bySub, stock: k === "mon" ? stockAll : [], stockNeed: k === "mon" ? stockNeed : [], stockPay: k === "mon" ? stockPay : 0 };
+  return { trip, groups, buy, have, pay, est, bySub, stock: k === "mon" ? stockAll : [], stockNeed: k === "mon" ? stockNeed : [], stockPay: k === "mon" ? stockPay : 0 };
 }
 // 某天那顿的食材是不是已经买了（那一趟记过小票，或者勾过东西）
 export function boughtFor(key, di) {
@@ -95,7 +135,7 @@ function itemRow(x, keyPre, stockRow) {
       <span class="for">${[...x.from].slice(0, 3).map(esc).join("、")}${x.from.size > 3 ? " 等" : ""}</span>
       ${stockRow ? `<button class="have" data-act="have" data-n="${esc(x.n)}" aria-pressed="${has}">${has ? "家里还有 ✓" : "家里还有"}</button>` : ""}
     </span>
-    <span class="q">${has ? "不用买" : qty(x)}</span></div>`;
+    <span class="q">${has ? "不用买" : qty(x)}${x.home ? `<small>家里有 ${fmtG(x.home)}，只买差的</small>` : ""}</span></div>`;
 }
 
 export function renderShop(el) {
@@ -133,8 +173,20 @@ export function renderShop(el) {
     <section class="card group"><h3>${g.name}<small>${g.items.length} 样</small></h3>${g.items.map(x => itemRow(x, pre, false)).join("")}</section>`).join("")}
     ${r.stock.length ? `<section class="card group"><details ${r.stockNeed.length ? "" : ""}><summary><h3>囤货和调料<small>${r.stock.length} 样 · 家里有就不用买</small></h3></summary>${r.stock.sort((p, q) => (PACKS[q.n] ? 1 : 0) - (PACKS[p.n] ? 1 : 0)).map(x => itemRow(x, pre, true)).join("")}</details></section>` : ""}
     ${!r.groups.length && !r.stock.length ? `<div class="empty">这趟不用买东西。</div>` : ""}
-  </div>`;
+  </div>
+  ${r.have.length ? `<section class="card mtop"><h3>家里有，这趟不用买<small class="hint"> · ${r.have.length} 样</small></h3><p class="hint">${r.have.map(x => `${esc(x.n)} ${fmtG(x.g)}`).join("、")}</p></section>` : ""}
+  ${invCard()}`;
 }
+// 家里的库存：今天还剩多少（按菜单吃掉的算），吃完了或者扔了点 × 清掉
+function invCard() {
+  const inv = S().inv, t = today();
+  const rows = Object.keys(inv).map(n => ({ n, left: invLeft(n, t) })).sort((a, b) => b.left - a.left);
+  if (!rows.length) return "";
+  return `<section class="card mtop"><h3>家里的库存<small class="hint"> · 按菜单吃到今天还剩的</small></h3>
+    <div class="invl">${rows.map(x => `<div class="inv ${x.left < 1 ? "done" : ""}"><span>${esc(x.n)}</span><span class="num">${x.left < 1 ? "吃完了" : fmtG(x.left)}</span><button class="x" data-act="invdel" data-n="${esc(x.n)}" aria-label="清掉${esc(x.n)}">×</button></div>`).join("")}</div>
+    <p class="hint">你发小票给我时我顺手记进来。菜单改了，剩多少会跟着变。</p></section>`;
+}
+actions.invdel = el => { delete S().inv[el.dataset.n]; save(); ui.rerender(); };
 actions.swk = el => { sel = { ...(sel || {}), key: el.dataset.w, k: sel?.k || "mon" }; ui.rerender(); };
 actions.trip = el => { sel = { ...(sel || nextTripSel()), k: el.dataset.v }; ui.rerender(); };
 const nextTripSel = () => { const n = nextTrip(); return { key: n.key, k: n.trip.k }; };
