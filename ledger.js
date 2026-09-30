@@ -9,7 +9,8 @@ const save = () => saveDoc("ledger");
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
-  const d = L(); if (!d?.S || d.S.v >= 3) return false;
+  const d = L(); if (!d?.S || d.S.v >= 4) return false;
+  if (d.S.v === 3) return migrateV4(d);
   if (d.S.v >= 2) return migrateV3(d);
   const S = d.S, old = Object.fromEntries(S.cats.map(c => [c.id, c]));
   const g = old.grocery || { subs: [] };
@@ -74,8 +75,14 @@ function migrateV3(d) {
     x.sub = "";
   }
   S.v = 3;
-  save();
-  return true;
+  return migrateV4(d);
+}
+// 囤货池：每月固定留 £30（原来吃饭预算里的米面调料挪过来），10 月起算；9 月回来补的算开荒
+function migrateV4(d) {
+  const S = d.S, food = S.cats.find(c => c.id === "food");
+  S.pool = S.pool || { a: 30, start: "2026-10" };
+  if (food && +food.a >= 240) food.a = +food.a - 30;
+  S.v = 4; save(); return true;
 }
 
 export function catOf(id) { return L().S.cats.find(c => c.id === id) || null; }
@@ -106,7 +113,18 @@ export function catBudget(c, m) {
   const fp = fixedPaid(c, m); if (fp > 0) return fp;
   return round2((+c.a || 0) * factor(c, m));
 }
-export const monthlyBudget = () => L().S.cats.reduce((a, c) => a + (+c.a || 0), 0);
+export const poolOf = () => L().S.pool || null;
+const monthsFrom = (a, b) => { const [y1, m1] = a.split("-").map(Number), [y2, m2] = b.split("-").map(Number); return (y2 - y1) * 12 + m2 - m1; };
+// 囤货池到某个月底还剩多少：每月存进去 a，买囤货从里面扣
+export function poolLeft(m) {
+  const P = poolOf(); if (!P) return 0;
+  m = m || today().slice(0, 7); if (m < P.start) return 0;
+  const put = (+P.a || 0) * (monthsFrom(P.start, m) + 1);
+  const used = L().E.filter(x => x.cat === "__stock" && x.date.slice(0, 7) >= P.start && x.date.slice(0, 7) <= m).reduce((a, x) => a + (+x.amount || 0), 0);
+  return round2(put - used);
+}
+const poolMonth = m => { const P = poolOf(); return P && m >= P.start ? +P.a || 0 : 0; };
+export const monthlyBudget = () => L().S.cats.reduce((a, c) => a + (+c.a || 0), 0) + (poolOf() ? +poolOf().a || 0 : 0);
 
 // 吃饭是超了也得买的，不算进"花得快不快"的提醒；零食、交通、其他才算
 const MUST = new Set(["food", "phone"]);
@@ -124,6 +142,8 @@ export function calc(month) {
   let alloc = 0, spent = 0, cAlloc = 0, cSpent = 0, stock = 0;
   for (const c of S.cats) { alloc += catBudget(c, m); spent += byC[c.id] || 0; if (!MUST.has(c.id)) { cAlloc += catBudget(c, m); cSpent += byC[c.id] || 0; } }
   for (const x of E) if (x.cat === "__stock" && x.date.slice(0, 7) === m) stock += +x.amount || 0;
+  // 囤货池：每月留的那笔算进预算，也算这个月花掉了（钱挪进池子），实际买囤货从池子里扣
+  const pm = poolMonth(m); alloc += pm; spent += pm;
   const [yy, mm] = m.split("-").map(Number);
   const dim = new Date(yy, mm, 0).getDate();
   const cur = m === t.slice(0, 7), past = m < t.slice(0, 7);
@@ -184,7 +204,7 @@ const CAT_HINT = {
   trans: "公交、打车、大巴火车",
   phone: "每月话费",
   other: "补剂、聚餐、衣服护肤、出去玩",
-  __stock: "米、面粉、油、燕麦、大瓶调料、蛋白粉这种一买吃很久的，从手上的钱扣，不占每月预算",
+  __stock: "米、面粉、油、燕麦、调料、蛋白粉、蜂蜜、咖啡这种一买用很久的，从囤货池里扣",
 };
 const saveF = () => { try { localStorage.setItem(UIK, JSON.stringify(F)); } catch (e) {} };
 
@@ -519,7 +539,12 @@ function catList(c) {
       if (xs.length) h += `<div class="subnote">买了 ${xs.length} 次：${xs.slice(0, 8).map(x => esc(x.note.replace(/^[^·]*·\s*/, "") || "零食")).join("、")}${xs.length > 8 ? " …" : ""}</div>`;
     }
   }
-  if (c.stock > 0) h += `<button class="cb" data-act="jfilter" data-id="__stock"><span class="nm">囤货</span><span class="hint">不占预算，从手上的钱扣</span><span class="r num">花了 <b>£${f2(c.stock)}</b></span></button>`;
+  const P = poolOf();
+  if (P && c.m >= P.start) {
+    const left = poolLeft(c.m);
+    h += `<button class="cb" data-act="jfilter" data-id="__stock"><span class="nm">囤货池</span><span class="hint">每月存 £${f2(P.a)}${c.stock > 0 ? `，这个月买了 £${f2(c.stock)}` : ""}</span><span class="r num">${left >= 0 ? `还剩 <b>£${f2(left)}</b>` : `先垫了 <b>£${f2(-left)}</b>`}</span></button>`;
+    if (left < 0) h += `<div class="subnote">这个月囤货买得多，池子先垫上，后面几个月每月的 £${f2(P.a)} 会慢慢补回来，不算超支。</div>`;
+  } else if (c.stock > 0) h += `<button class="cb" data-act="jfilter" data-id="__stock"><span class="nm">开荒囤货</span><span class="hint">刚回来补的，不占预算</span><span class="r num">花了 <b>£${f2(c.stock)}</b></span></button>`;
   return h + `<div class="hint">吃饭超了只提醒不标红，该买照买；零食、交通、其他花快了才变色。</div><div class="hint legend"><span class="lg"><i></i>竖线 = 按日子今天该花到哪</span><span class="lg warn"><i></i>花得偏快</span><span class="lg bad"><i></i>超预算</span></div>`;
 }
 // 手上的钱分成几块
@@ -609,6 +634,7 @@ function settingsHtml() {
     <input data-${attr}="${id}" type="number" min="0" step="1" inputmode="decimal" value="${+v || 0}" aria-label="${esc(n)}">${del ? `<button class="x" data-act="${del}" data-id="${id}" aria-label="删除 ${esc(n)}">×</button>` : "<span></span>"}</div>`;
   let cats = "";
   for (const c of S.cats) cats += row("ec", c.id, c.n, c.a, false, "");
+  if (S.pool) cats += row("ep", "pool", "囤货池（每月存）", S.pool.a, false, "");
   return `<div class="pagehead"><h1>预算和备份</h1><div class="acts"><button class="btn" data-act="setback">← 回到记账</button></div></div>
   <div class="cols2">
     <div>
@@ -643,6 +669,7 @@ actions.saveset = () => {
   const S = L().S;
   S.cash = parseFloat($("#sCash").value) || 0; S.card = parseFloat($("#sCard").value) || 0;
   $$("[data-ec]").forEach(i => { const c = catOf(i.dataset.ec); if (c) c.a = parseFloat(i.value) || 0; });
+  $$("[data-ep]").forEach(i => { if (S.pool) S.pool.a = parseFloat(i.value) || 0; });
   $$("[data-eg]").forEach(i => { const g = goalOf(i.dataset.eg); if (g) g.t = parseFloat(i.value) || 0; });
   $$("[data-eo]").forEach(i => { const o = S.ones.find(z => z.id === i.dataset.eo); if (o) o.a = parseFloat(i.value) || 0; });
   save(); ui.rerender(); toast("保存好了");
