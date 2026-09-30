@@ -95,9 +95,15 @@ function factor(c, m) {
   const [y, mo] = m.split("-").map(Number), dim = new Date(y, mo, 0).getDate();
   return (dim - +st.slice(8) + 1) / dim;
 }
+// 话费这种每月一次的：这个月交过了，预算就按实际交的算（9 月只交了 £6.46 也算交过）
+function fixedPaid(c, m) {
+  if (!c.fixed) return 0;
+  return round2(L().E.filter(x => x.cat === c.id && x.date.slice(0, 7) === m).reduce((a, x) => a + (+x.amount || 0), 0));
+}
 export function catBudget(c, m) {
   m = m || today().slice(0, 7);
   if (L().S.start && m < L().S.start.slice(0, 7)) return 0;
+  const fp = fixedPaid(c, m); if (fp > 0) return fp;
   return round2((+c.a || 0) * factor(c, m));
 }
 export const monthlyBudget = () => L().S.cats.reduce((a, c) => a + (+c.a || 0), 0);
