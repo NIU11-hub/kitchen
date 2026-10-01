@@ -539,6 +539,9 @@ function catList(c) {
       if (xs.length) h += `<div class="subnote">买了 ${xs.length} 次：${xs.slice(0, 8).map(x => esc(x.note.replace(/^[^·]*·\s*/, "") || "零食")).join("、")}${xs.length > 8 ? " …" : ""}</div>`;
     }
   }
+  // 一次性的（锅、公交卡、生日请客这种）不占每月预算，但列出来，免得找不到
+  const ones = L().E.filter(x => x.cat === "__one" && x.date.slice(0, 7) === c.m), oneSum = ones.reduce((a2, x) => a2 + (+x.amount || 0), 0);
+  if (ones.length) h += `<button class="cb" data-act="jfilter" data-id="__one"><span class="nm">一次性</span><span class="hint">${ones.slice(0, 3).map(x => esc((x.note || "").split(" · ")[0])).join("、")}${ones.length > 3 ? " 等" : ""}，不占预算</span><span class="r num">花了 <b>£${f2(oneSum)}</b></span></button>`;
   const P = poolOf();
   if (P && c.m >= P.start) {
     const left = poolLeft(c.m);
