@@ -19,7 +19,7 @@ export const RICE = { n: "熟米饭", kcal: 130, p: 2.7, c: 28.2, f: 0.3 };
 
 // 菜单里的特殊格子。聚餐的钱吃完再填；Meal Deal 固定 £4
 export const SPECIAL = {
-  eatout: { label: "出去聚餐", cat: "other", presets: [
+  eatout: { label: "出去聚餐", cat: "social", presets: [
     { name: "中餐聚餐（几个菜配米饭）", kcal: 1100, p: 50, c: 110, f: 50 },
     { name: "火锅", kcal: 1300, p: 60, c: 80, f: 80 },
     { name: "烤肉（韩式或日式）", kcal: 1200, p: 70, c: 70, f: 65 },
@@ -39,9 +39,10 @@ export const SPECIAL = {
 export const LEDGER_CATS = [
   { id: "food", n: "吃饭" },    // 超市正经食材、水、日用品、Meal Deal、外卖正餐
   { id: "snack", n: "零食" },   // 糖、巧克力、奶昔、可乐、奶茶、咖啡
+  { id: "social", n: "人情" },  // 请客、礼物、聚餐、跟朋友出去玩：可以不花的
   { id: "trans", n: "交通" },
   { id: "phone", n: "话费" },
-  { id: "other", n: "其他" },   // 补剂、聚餐、衣服护肤、出去玩
+  { id: "other", n: "其他" },   // 补剂、衣服护肤、药
 ];
 
 // 采购清单分组 = 超市小类（列表里能自动算的那几类）

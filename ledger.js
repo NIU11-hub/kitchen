@@ -9,7 +9,8 @@ const save = () => saveDoc("ledger");
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
-  const d = L(); if (!d?.S || d.S.v >= 5) return false;
+  const d = L(); if (!d?.S || d.S.v >= 6) return false;
+  if (d.S.v === 5) return migrateV6(d);
   if (d.S.v === 4) return migrateV5(d);
   if (d.S.v === 3) return migrateV4(d);
   if (d.S.v >= 2) return migrateV3(d);
@@ -43,13 +44,13 @@ const WATER = /(^|[^汽])水(?!果)|water/i;
 // 旧的分类/小类 → 新的五类
 export function legacyCat(cat, sub, note) {
   const n = note || "";
-  if (["food", "snack", "trans", "phone", "other"].includes(cat)) return cat;
+  if (["food", "snack", "social", "trans", "phone", "other"].includes(cat)) return cat;
   if (cat === "grocery") {
     if (sub === "snack") return WATER.test(n) && !SNACKY.test(n.replace(WATER, "")) ? "food" : "snack";
     return "food";
   }
   if (cat === "eat") {
-    if (sub === "party") return "other";
+    if (sub === "party") return "social";
     if (sub === "coffee") return /咖啡|奶茶|coffee|latte/i.test(n) ? "snack" : "food";
     return "food";
   }
@@ -98,7 +99,21 @@ function migrateV5(d) {
   for (const x of d.E) if (x.cat === "__one" && !x.spread) { const r = rule.find(([re]) => re.test(x.note || "")); if (r) x.spread = { ...r[1] }; }
   S.recur = S.recur || [{ key: "UniLink", n: "UniLink 公交卡", a: 140, months: 3 }];
   for (const o of S.ones) if (/朋友来玩/.test(o.n)) o.spread = o.spread || { months: 1, plan: false };
-  S.v = 5; save(); return true;
+  S.v = 5; return migrateV6(d);
+}
+// 人情单独一类：请客、礼物、聚餐、出去玩，月上限 £30；其他只剩补剂衣服这些，降到 £15
+function migrateV6(d) {
+  const S = d.S;
+  if (!S.cats.some(c => c.id === "social")) {
+    const i = S.cats.findIndex(c => c.id === "snack");
+    S.cats.splice(i + 1, 0, { id: "social", n: "人情", a: 30 });
+    const o = S.cats.find(c => c.id === "other"); if (o && +o.a === 30) o.a = 15;
+  }
+  for (const x of d.E) {
+    if (x.cat === "other" && /聚餐|请客|礼物|生日/.test(x.note || "")) x.cat = "social";
+    if (x.cat === "__one" && x.spread && !x.spread.plan && /请客|聚餐|礼物|生日/.test(x.note || "")) x.spread.cat = "social";
+  }
+  S.v = 6; save(); return true;
 }
 
 export function catOf(id) { return L().S.cats.find(c => c.id === id) || null; }
@@ -148,7 +163,7 @@ export function sharesIn(m) {
     const sp = spreadOf(x); if (!sp) continue;
     const n = Math.max(1, +sp.months || 1), k = monthsFrom(sp.start, m);
     if (k < 0 || k >= n) continue;
-    out.push({ x, share: round2((+x.amount || 0) / n), k: k + 1, n, plan: !!sp.plan });
+    out.push({ x, share: round2((+x.amount || 0) / n), k: k + 1, n, plan: !!sp.plan, cat: sp.cat || "" });
   }
   return out;
 }
@@ -185,7 +200,11 @@ export function calc(month) {
   const pm = poolMonth(m); alloc += pm; spent += pm;
   // 大额分摊：这个月该算的那一份
   const shares = sharesIn(m); let amort = 0, amortPlan = 0;
-  for (const s2 of shares) { amort += s2.share; spent += s2.share; if (s2.plan) { amortPlan += s2.share; alloc += s2.share; } }
+  for (const s2 of shares) {
+    amort += s2.share; spent += s2.share;
+    if (s2.plan) { amortPlan += s2.share; alloc += s2.share; }
+    else if (s2.cat && byC[s2.cat] !== undefined) { byC[s2.cat] += s2.share; if (!MUST.has(s2.cat)) cSpent += s2.share; }
+  }
   const [yy, mm] = m.split("-").map(Number);
   const dim = new Date(yy, mm, 0).getDate();
   const cur = m === t.slice(0, 7), past = m < t.slice(0, 7);
@@ -255,7 +274,8 @@ const CAT_HINT = {
   snack: "糖、巧克力、奶昔、可乐、奶茶咖啡这些想吃才买的",
   trans: "公交、打车、大巴火车",
   phone: "每月话费",
-  other: "补剂、聚餐、衣服护肤、出去玩",
+  social: "请客、送礼、聚餐、跟朋友出去玩，这些可以不花的",
+  other: "补剂、衣服护肤、药",
   __stock: "米、面粉、油、燕麦、调料、蛋白粉、蜂蜜、咖啡这种一买用很久的，从囤货池里扣",
 };
 const saveF = () => { try { localStorage.setItem(UIK, JSON.stringify(F)); } catch (e) {} };
@@ -595,8 +615,8 @@ function catList(c) {
   // 一次性的（锅、公交卡、生日请客这种）不占每月预算，但列出来，免得找不到
   // 大额分摊：这个月摊到的每一份
   if (c.shares.length) {
-    h += `<div class="amort"><div class="amh"><span>大额分摊</span><span class="num">这个月 <b>£${f2(c.amort)}</b></span></div>${c.shares.map(s2 => `<div class="amr ${s2.plan ? "" : "unplan"}"><span>${esc((s2.x.note || "大额").replace(/^[A-Za-z][^·]*·\s*/, ""))}<small>£${f2(s2.x.amount)} 分 ${s2.n} 个月，第 ${s2.k} 个月${s2.plan ? "" : " · 计划外"}</small></span><span class="num">£${f2(s2.share)}</span></div>`).join("")}
-      <div class="hint">固定开销（健身房、公交卡）每月这一份已经算进预算；计划外的（请客、出去玩）这一份从当月预算里扣。</div></div>`;
+    h += `<div class="amort"><div class="amh"><span>大额分摊</span><span class="num">这个月 <b>£${f2(c.amort)}</b></span></div>${c.shares.map(s2 => `<div class="amr ${s2.plan ? "" : "unplan"}"><span>${esc((s2.x.note || "大额").replace(/^[A-Za-z][^·]*·\s*/, ""))}<small>£${f2(s2.x.amount)} 分 ${s2.n} 个月，第 ${s2.k} 个月${s2.plan ? "" : s2.cat === "social" ? " · 算进人情" : " · 计划外"}</small></span><span class="num">£${f2(s2.share)}</span></div>`).join("")}
+      <div class="hint">固定开销（健身房、公交卡）每月这一份已经算进预算；计划外的（请客、送礼）这一份算进当月「人情」里。</div></div>`;
   }
   const P = poolOf();
   if (P && c.m >= P.start) {
