@@ -9,7 +9,8 @@ const save = () => saveDoc("ledger");
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
-  const d = L(); if (!d?.S || d.S.v >= 4) return false;
+  const d = L(); if (!d?.S || d.S.v >= 5) return false;
+  if (d.S.v === 4) return migrateV5(d);
   if (d.S.v === 3) return migrateV4(d);
   if (d.S.v >= 2) return migrateV3(d);
   const S = d.S, old = Object.fromEntries(S.cats.map(c => [c.id, c]));
@@ -82,7 +83,22 @@ function migrateV4(d) {
   const S = d.S, food = S.cats.find(c => c.id === "food");
   S.pool = S.pool || { a: 30, start: "2026-10" };
   if (food && +food.a >= 240) food.a = +food.a - 30;
-  S.v = 4; save(); return true;
+  S.v = 4; return migrateV5(d);
+}
+// 大额分摊：已经付的几笔按用的月份平摊；公交卡 90 天一续
+function migrateV5(d) {
+  const S = d.S;
+  const rule = [
+    [/健身房|Gym/i, { start: "2026-10", months: 9, plan: true }],
+    [/UniLink/i, { start: "2026-10", months: 3, plan: true }],
+    [/平底锅|切菜板|沥水篮/, { start: "2026-10", months: 9, plan: true }],
+    [/希思罗/, { start: "2026-09", months: 1, plan: true }],
+    [/生日/, { start: "2026-10", months: 3, plan: false }],
+  ];
+  for (const x of d.E) if (x.cat === "__one" && !x.spread) { const r = rule.find(([re]) => re.test(x.note || "")); if (r) x.spread = { ...r[1] }; }
+  S.recur = S.recur || [{ key: "UniLink", n: "UniLink 公交卡", a: 140, months: 3 }];
+  for (const o of S.ones) if (/朋友来玩/.test(o.n)) o.spread = o.spread || { months: 1, plan: false };
+  S.v = 5; save(); return true;
 }
 
 export function catOf(id) { return L().S.cats.find(c => c.id === id) || null; }
@@ -114,7 +130,30 @@ export function catBudget(c, m) {
   return round2((+c.a || 0) * factor(c, m));
 }
 export const poolOf = () => L().S.pool || null;
+
+/* ---------- 大额分摊 ----------
+   一次性付的大额（健身房年卡、公交卡、锅）按用的月份平摊，每个月的账里算那个月的一份。
+   x.spread = { start: "2026-10", months: 9, plan: true }
+   plan=true：本来就要花的固定开销（健身房、公交卡），这份也加进当月预算，不算超支
+   plan=false：计划外的（生日请客、出去玩），这份从当月预算里扣，几个月一起消化 */
 const monthsFrom = (a, b) => { const [y1, m1] = a.split("-").map(Number), [y2, m2] = b.split("-").map(Number); return (y2 - y1) * 12 + m2 - m1; };
+export const mAdd = (m, n) => { const [y, mo] = m.split("-").map(Number); const d = new Date(y, mo - 1 + n, 1); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); };
+export function spreadOf(x) {
+  if (x.cat !== "__one") return null;
+  return x.spread || { start: x.date.slice(0, 7), months: 1, plan: false };
+}
+export function sharesIn(m) {
+  const out = [];
+  for (const x of L().E) {
+    const sp = spreadOf(x); if (!sp) continue;
+    const n = Math.max(1, +sp.months || 1), k = monthsFrom(sp.start, m);
+    if (k < 0 || k >= n) continue;
+    out.push({ x, share: round2((+x.amount || 0) / n), k: k + 1, n, plan: !!sp.plan });
+  }
+  return out;
+}
+// 会续费的固定大额：用完一轮还要再买（公交卡 90 天一张）。算"钱能撑到哪天"时，没预付到的月份要留出这份
+export const recurOf = () => L().S.recur || [];
 // 囤货池到某个月底还剩多少：每月存进去 a，买囤货从里面扣
 export function poolLeft(m) {
   const P = poolOf(); if (!P) return 0;
@@ -144,6 +183,9 @@ export function calc(month) {
   for (const x of E) if (x.cat === "__stock" && x.date.slice(0, 7) === m) stock += +x.amount || 0;
   // 囤货池：每月留的那笔算进预算，也算这个月花掉了（钱挪进池子），实际买囤货从池子里扣
   const pm = poolMonth(m); alloc += pm; spent += pm;
+  // 大额分摊：这个月该算的那一份
+  const shares = sharesIn(m); let amort = 0, amortPlan = 0;
+  for (const s2 of shares) { amort += s2.share; spent += s2.share; if (s2.plan) { amortPlan += s2.share; alloc += s2.share; } }
   const [yy, mm] = m.split("-").map(Number);
   const dim = new Date(yy, mm, 0).getDate();
   const cur = m === t.slice(0, 7), past = m < t.slice(0, 7);
@@ -151,22 +193,32 @@ export function calc(month) {
   const dn = cur ? +t.slice(8) : past ? dim : 0;
   const span = dim - st + 1, done = Math.max(0, dn - st + 1);
   const pot = S.goals.reduce((a, g) => a + (+g.s || 0), 0);
-  return { m, byC, byS, byD, alloc, spent, cAlloc, cSpent, stock: round2(stock), left: round2(alloc - spent), dim, dn, st, dl: dim - dn + (cur ? 1 : 0), should: alloc * done / span,
+  const upfront = pm + amort, allocDaily = alloc - pm - amortPlan;
+  return { m, byC, byS, byD, alloc, spent, cAlloc, cSpent, stock: round2(stock), upfront: round2(upfront), allocDaily: round2(allocDaily), shares, amort: round2(amort), amortPlan: round2(amortPlan), left: round2(alloc - spent), dim, dn, st, dl: dim - dn + (cur ? 1 : 0), should: alloc * done / span,
     cash: (+S.cash || 0) + fc, card: (+S.card || 0) + fd, remain: (+S.cash || 0) + (+S.card || 0) + fc + fd, cur, pot };
 }
 export const unpaidTotal = () => L().S.ones.filter(o => !o.paid).reduce((a, o) => a + (+o.a || 0), 0);
 
 // 按预算花，手上的钱（扣掉没付的大额）能撑到哪天
+// 某个月要从手上掏的钱：日常预算 + 囤货池 + 到期要续费的固定大额（已经预付覆盖到的月份不算）
+export function needIn(m) {
+  let need = monthlyBudget();
+  for (const r of recurOf()) {
+    const paid = L().E.filter(x => x.cat === "__one" && x.spread && (x.note || "").includes(r.key))
+      .some(x => monthsFrom(x.spread.start, m) >= 0 && monthsFrom(x.spread.start, m) < x.spread.months);
+    if (!paid) need += (+r.a || 0) / Math.max(1, +r.months || 1);
+  }
+  return round2(need);
+}
 export function runway() {
-  const c = calc(), mb = monthlyBudget();
+  const c = calc(); if (!(monthlyBudget() > 0)) return null;
   let avail = c.remain - unpaidTotal() - Math.max(0, c.left);
   if (avail < 0) return { date: today(), short: true };
-  if (!(mb > 0)) return null;
-  let d = parse(today()); d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  let m = mAdd(today().slice(0, 7), 1);
   for (let i = 0; i < 60; i++) {
-    const dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-    if (avail < mb) return { date: iso(new Date(d.getFullYear(), d.getMonth(), Math.max(1, Math.floor(avail / mb * dim)))) };
-    avail -= mb; d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    const need = needIn(m), [y, mo] = m.split("-").map(Number), dim = new Date(y, mo, 0).getDate();
+    if (avail < need) return { date: iso(new Date(y, mo - 1, Math.max(1, Math.floor(avail / need * dim)))) };
+    avail -= need; m = mAdd(m, 1);
   }
   return { date: null };
 }
@@ -510,13 +562,14 @@ export function heroCard(c) {
 }
 // 这个月的预算一根条：已花多少、还能花多少，竖线是按日子今天该花到哪
 function monthBar(c) {
-  const a = c.alloc, sp = c.spent, p = pace(c), should = a * p;
+  // 月初就算进去的（囤货池、大额分摊）不按日子摊，竖线只量日常花销
+  const a = c.alloc, sp = c.spent, p = pace(c), should = c.upfront + c.allocDaily * p;
   const pct = a > 0 ? Math.min(100, sp / a * 100) : 0, st = status(c.cSpent, c.cAlloc, p);
   return `<div class="mbar ${st}">
     <div class="mbar-h"><span>这个月预算 <b class="num">£${f2(a)}</b></span></div>
-    <div class="mbar-t"><i style="width:${pct.toFixed(1)}%"></i>${c.cur ? `<b style="left:${(p * 100).toFixed(1)}%"></b>` : ""}</div>
+    <div class="mbar-t"><i style="width:${pct.toFixed(1)}%"></i>${c.cur && a > 0 ? `<b style="left:${Math.min(100, should / a * 100).toFixed(1)}%"></b>` : ""}</div>
     <div class="mbar-l"><span>已花 <b class="num">£${f2(sp)}</b></span><span>${c.left < 0 ? `超了 <b class="num up">£${f2(-c.left)}</b>` : `还能花 <b class="num">£${f2(c.left)}</b>`}</span></div>
-    ${c.cur ? `<div class="hint">竖线是按日子到今天该花的 £${f2(should)}。${st ? "零食、交通、其他花得偏快，这几天收着点。" : sp > should ? "超出来的主要是吃饭，该买照买。" : "花得不快。"}</div>` : ""}
+    ${c.cur ? `<div class="hint">竖线是到今天该花到的 £${f2(should)}：月初先算进去的囤货池和大额分摊 £${f2(c.upfront)}，加上日常花销按日子摊到今天的部分。${st ? "零食、交通、其他花得偏快，这几天收着点。" : sp > should ? "超出来的主要是吃饭，该买照买。" : "花得不快。"}</div>` : ""}
   </div>`;
 }
 function bar(name, spent, budget, p, fixed, act, soft) {
@@ -540,8 +593,11 @@ function catList(c) {
     }
   }
   // 一次性的（锅、公交卡、生日请客这种）不占每月预算，但列出来，免得找不到
-  const ones = L().E.filter(x => x.cat === "__one" && x.date.slice(0, 7) === c.m), oneSum = ones.reduce((a2, x) => a2 + (+x.amount || 0), 0);
-  if (ones.length) h += `<button class="cb" data-act="jfilter" data-id="__one"><span class="nm">一次性</span><span class="hint">${ones.slice(0, 3).map(x => esc((x.note || "").split(" · ")[0])).join("、")}${ones.length > 3 ? " 等" : ""}，不占预算</span><span class="r num">花了 <b>£${f2(oneSum)}</b></span></button>`;
+  // 大额分摊：这个月摊到的每一份
+  if (c.shares.length) {
+    h += `<div class="amort"><div class="amh"><span>大额分摊</span><span class="num">这个月 <b>£${f2(c.amort)}</b></span></div>${c.shares.map(s2 => `<div class="amr ${s2.plan ? "" : "unplan"}"><span>${esc((s2.x.note || "大额").replace(/^[A-Za-z][^·]*·\s*/, ""))}<small>£${f2(s2.x.amount)} 分 ${s2.n} 个月，第 ${s2.k} 个月${s2.plan ? "" : " · 计划外"}</small></span><span class="num">£${f2(s2.share)}</span></div>`).join("")}
+      <div class="hint">固定开销（健身房、公交卡）每月这一份已经算进预算；计划外的（请客、出去玩）这一份从当月预算里扣。</div></div>`;
+  }
   const P = poolOf();
   if (P && c.m >= P.start) {
     const left = poolLeft(c.m);
@@ -623,7 +679,7 @@ actions.delentry = el => {
 };
 actions.pay = el => {
   const o = L().S.ones.find(z => z.id === el.dataset.id); if (!o) return;
-  if (!o.paid) { const x = addEntry({ amount: +o.a || 0, cat: "__one", note: o.n }); o.paid = true; o.xid = x.id; toast("已付 £" + f2(o.a)); }
+  if (!o.paid) { const x = addEntry({ amount: +o.a || 0, cat: "__one", note: o.n }); if (o.spread) x.spread = { start: x.date.slice(0, 7), ...o.spread }; o.paid = true; o.xid = x.id; toast("已付 £" + f2(o.a)); }
   else { const E = L().E; const i = E.findIndex(x => x.id === o.xid); if (i >= 0) E.splice(i, 1); o.paid = false; o.xid = ""; toast("撤销了"); }
   save(); ui.rerender();
 };

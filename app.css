@@ -477,3 +477,9 @@ button.t:hover .nm{color:var(--acc)}
 .inv{display:grid;grid-template-columns:1fr auto 24px;gap:8px;align-items:center;font-size:14px;padding:4px 0;border-bottom:1px solid var(--line,#e6e3dc)}
 .inv.done{color:var(--ink3)}
 .q small{display:block;color:var(--ink3);font-size:11.5px}
+
+.amort{margin-top:10px;padding-top:10px;border-top:1px solid var(--line,#e6e3dc)}
+.amh{display:flex;justify-content:space-between;font-weight:600;font-size:14px;margin-bottom:4px}
+.amr{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:3px 0}
+.amr small{display:block;color:var(--ink3);font-size:11.5px}
+.amr.unplan span:first-child{color:var(--warn)}
