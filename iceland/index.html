@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>冰岛三人行</title>
+<meta name="theme-color" content="#F5F4F0">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%233A6F80'/%3E%3Cpath d='M7 22l6-9 4 5 3-3 5 7z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* 和厨房账本同一套框架：电脑左侧导航、手机底部导航；浅色、柔和、低饱和 */
+:root {
+  color-scheme: light;
+  --bg: #F5F4F0;
+  --surface: #FFFFFF;
+  --ink: #23272B;
+  --muted: #5B6166;
+  --line: #E0DED7;
+  --accent: #3A6F80;
+  --accent-soft: #E2ECEF;
+  --warm: #A55D2F;
+  --warm-soft: #FBEFE5;
+  --sand: #F3F2EE;
+  --font-display: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-body: system-ui, -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+  --num: "Manrope", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.75 var(--font-body); -webkit-font-smoothing: antialiased; }
+[hidden] { display: none !important; }
+
+/* 框架 */
+.side { position: fixed; inset: 0 auto 0 0; width: 212px; background: var(--surface); border-right: 1px solid var(--line); padding: 22px 14px; display: flex; flex-direction: column; gap: 22px; z-index: 30; }
+.brand { padding: 0 10px; display: flex; flex-direction: column; gap: 2px; }
+.brand b { font-size: 15.5px; }
+.brand span { font-size: 12px; color: var(--muted); font-family: var(--num); }
+#nav { display: flex; flex-direction: column; gap: 2px; }
+#nav a { display: flex; align-items: center; gap: 11px; padding: 9px 12px; border-radius: 10px; text-decoration: none; color: var(--muted); font-weight: 500; transition: background-color .15s, color .15s; }
+#nav a:hover { background: var(--bg); }
+#nav a[aria-current=page] { background: var(--accent-soft); color: var(--accent); font-weight: 650; }
+#nav svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.side .foot { margin-top: auto; padding: 0 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.main { margin-left: 212px; min-height: 100vh; }
+.wrap { max-width: 900px; margin: 0 auto; padding: 8px 32px 80px; }
+.tab > header.top { padding-block: 24px 14px; }
+nav.toc { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); margin-inline: -32px; padding: 10px 32px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+@media (max-width: 900px) {
+  .side { inset: auto 0 0 0; width: auto; height: auto; padding: 0 0 env(safe-area-inset-bottom, 0px); border-right: 0; border-top: 1px solid var(--line); flex-direction: row; background: rgba(255,255,255,.96); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .brand, .side .foot { display: none; }
+  #nav { flex-direction: row; width: 100%; justify-content: space-around; gap: 0; }
+  #nav a { flex-direction: column; gap: 2px; padding: 8px 4px 9px; font-size: 11.5px; flex: 1; border-radius: 0; }
+  #nav a[aria-current=page] { background: transparent; }
+  .main { margin-left: 0; }
+  .wrap { padding: 0 16px 110px; }
+  nav.toc { margin-inline: -16px; padding: 10px 16px; top: env(safe-area-inset-top, 0px); }
+}
+.num, .stat .v, .who > div > span, td.r { font-family: var(--num); font-variant-numeric: tabular-nums; }
+
+/* Layout: one reading column, sticky chip nav, every section tagged 已定 / 待商量, tables in their own scroll boxes. Single light theme by the user's choice: soft glacier greys, low saturation. */
+
+* { box-sizing: border-box; }
+
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+
+.eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 6vw, 40px); line-height: 1.25; margin: 6px 0 10px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 68ch; }
+
+.status { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; font-size: 13.5px; color: var(--muted); }
+.status > span { display: inline-flex; align-items: center; gap: 6px; }
+
+.pill { display: inline-block; font-size: 12px; font-weight: 500; line-height: 1.6; padding: 0 9px; border-radius: 999px; white-space: nowrap; vertical-align: 3px; }
+.pill.fix { background: var(--accent); color: var(--surface); }
+.pill.tbd { background: var(--warm-soft); color: var(--warm); border: 1px solid #e6cfbd; }
+h2 .pill { margin-left: 8px; }
+
+
+nav.toc::-webkit-scrollbar { display: none; }
+nav.toc a {
+  flex: none; font-size: 13px; text-decoration: none; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px;
+}
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+section { padding-block: 36px 4px; scroll-margin-top: 56px; }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: 22px; margin: 0 0 10px; text-wrap: balance; }
+h3 { font-size: 15px; font-weight: 700; margin: 22px 0 6px; }
+p { margin: 0 0 12px; max-width: 68ch; }
+.lead { font-size: 16px; }
+ul, ol { margin: 0 0 12px; padding-left: 1.3em; max-width: 68ch; }
+li { margin-bottom: 4px; }
+.muted { color: var(--muted); }
+.small { font-size: 13.5px; }
+.num { font-variant-numeric: tabular-nums; }
+strong { font-weight: 700; }
+
+.callout { background: var(--warm-soft); border: 1px solid #ead8c9; border-radius: 10px; padding: 14px 16px; margin: 16px 0; max-width: 68ch; }
+.callout strong { color: var(--warm); }
+.note { background: var(--accent-soft); border: 1px solid #c8dcdf; border-radius: 10px; padding: 12px 16px; margin: 14px 0; max-width: 68ch; font-size: 14px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.stat .k { font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+.stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.stat .d { font-size: 12.5px; color: var(--muted); }
+.stat.pick { border-color: var(--accent); background: var(--accent-soft); }
+@media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
+
+.day { margin: 14px 0 6px; max-width: 520px; }
+.day .bar { position: relative; height: 14px; border-radius: 7px; background: #c9d3d6; overflow: hidden; }
+.day .lit { position: absolute; top: 0; bottom: 0; left: calc(11.33 / 24 * 100%); width: calc(4.17 / 24 * 100%); background: #f1e3c6; }
+.day .ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+.tbl { overflow-x: auto; margin: 10px 0 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; background: var(--sand); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.nw { white-space: nowrap; }
+tr.rec td { background: var(--accent-soft); }
+tr.total td { font-weight: 700; background: var(--sand); }
+tr.sub td { color: var(--muted); font-size: 13px; }
+.tag { display: inline-block; font-size: 11.5px; padding: 0 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); border: 1px solid #c8dcdf; margin-left: 4px; white-space: nowrap; }
+.tag.w { background: var(--warm-soft); color: var(--warm); border-color: #e6cfbd; }
+
+.flight { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.leg { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.leg .when { font-size: 12.5px; color: var(--muted); }
+.leg .fn { font-weight: 700; font-size: 15px; margin: 2px 0 6px; }
+.leg .route { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.leg .route b { font-size: 22px; }
+.leg .route span { color: var(--muted); font-size: 13px; }
+@media (max-width: 560px) { .flight { grid-template-columns: 1fr; } }
+
+.steps { list-style: none; padding: 0; margin: 10px 0 16px; display: grid; gap: 8px; max-width: 100%; }
+.steps li { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0; }
+.steps .when { font-weight: 700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.steps li.last .when { color: var(--warm); }
+@media (max-width: 560px) { .steps li { grid-template-columns: 1fr; gap: 2px; } }
+
+.days { display: grid; gap: 12px; margin: 12px 0; }
+.dayc { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; }
+.dayc .d { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 16px; }
+.dayc .d small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.dayc .t { font-weight: 700; margin: 0 0 6px; }
+.dayc ol.time { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 3px; }
+.dayc ol.time li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; margin: 0; font-size: 14px; }
+.dayc ol.time li span:first-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.dayc .tips { font-size: 13.5px; color: var(--muted); margin: 0; padding-left: 1.2em; }
+.dayc .tips li { margin-bottom: 2px; }
+.dayc.flex { border-style: dashed; }
+@media (max-width: 560px) { .dayc { grid-template-columns: 1fr; gap: 6px; } }
+
+.tours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.tour { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tour .t { font-weight: 700; }
+.tour .p { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tour .p small { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.tour dl { margin: 0; display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 4px 8px; font-size: 13.5px; }
+.tour dt { color: var(--muted); }
+.tour dd { margin: 0; }
+.tour .go { margin-top: auto; font-size: 13.5px; }
+@media (max-width: 640px) { .tours { grid-template-columns: 1fr; } }
+
+.checks { list-style: none; padding: 0; columns: 2 260px; column-gap: 24px; max-width: 100%; }
+.checks li { break-inside: avoid; display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
+.checks input { margin-top: 6px; accent-color: var(--accent); flex: none; }
+.checks label { cursor: pointer; }
+.checks input:checked + label { color: var(--muted); text-decoration: line-through; }
+
+.sources { font-size: 13px; color: var(--muted); }
+.sources li { margin-bottom: 2px; }
+footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+/* ---- 签证页 ---- */
+
+/* Layout: a numbered walkthrough (the order is the point), each step a section with its own tick-box; form cheat-sheets as field / what-to-write tables. Single light theme by the user's choice: soft glacier greys. */
+
+* { box-sizing: border-box; }
+
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; word-break: break-word; }
+a:focus-visible, input:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.eyebrow { font-size: 12px; letter-spacing: .12em; color: var(--muted); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(28px, 6vw, 40px); line-height: 1.25; margin: 6px 0 10px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 68ch; }
+
+
+nav.toc::-webkit-scrollbar { display: none; }
+nav.toc a { flex: none; font-size: 13px; text-decoration: none; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-variant-numeric: tabular-nums; }
+nav.toc a:hover { border-color: var(--accent); color: var(--accent); }
+
+section { padding-block: 34px 4px; scroll-margin-top: 56px; }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: 22px; margin: 0 0 10px; text-wrap: balance; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+h2 .no { font-family: var(--font-mono); font-size: 14px; font-weight: 500; color: var(--surface); background: var(--accent); border-radius: 6px; padding: 1px 8px; }
+h2 .when { font-family: var(--font-body); font-size: 13px; font-weight: 500; color: var(--warm); }
+h3 { font-size: 15px; font-weight: 700; margin: 22px 0 6px; }
+p { margin: 0 0 12px; max-width: 68ch; }
+ul, ol { margin: 0 0 12px; padding-left: 1.3em; max-width: 68ch; }
+li { margin-bottom: 4px; }
+.muted { color: var(--muted); }
+.small { font-size: 13.5px; }
+code, .mono { font-family: var(--font-mono); font-size: .9em; background: var(--sand); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; word-break: break-all; }
+strong { font-weight: 700; }
+
+.callout { background: var(--warm-soft); border: 1px solid #ead8c9; border-radius: 10px; padding: 14px 16px; margin: 14px 0; max-width: 68ch; }
+.callout strong { color: var(--warm); }
+.note { background: var(--accent-soft); border: 1px solid #c8dcdf; border-radius: 10px; padding: 12px 16px; margin: 14px 0; max-width: 68ch; font-size: 14px; }
+
+.who { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 14px 0; }
+.who > div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.who > div > b { display: block; font-size: 13px; color: var(--muted); font-weight: 500; }
+.who > div > span { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .who { grid-template-columns: 1fr; } }
+
+.tbl { overflow-x: auto; margin: 10px 0 16px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; background: var(--sand); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td.f { font-weight: 500; width: 40%; }
+@media (max-width: 560px) { th, td { padding: 8px 10px; } table { font-size: 13.5px; } }
+td.fix { font-family: var(--font-mono); font-size: 13.5px; color: var(--accent); font-weight: 500; }
+td.you { color: var(--warm); }
+tr.grp td { background: var(--sand); font-weight: 700; font-size: 13px; color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin: 8px 0; }
+.legend .a { color: var(--accent); font-family: var(--font-mono); font-weight: 500; }
+.legend .b { color: var(--warm); }
+
+.do { list-style: none; padding: 0; margin: 10px 0 16px; display: grid; gap: 8px; max-width: 100%; }
+.do li { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; align-items: start; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; margin: 0; }
+.do input { margin-top: 6px; accent-color: var(--accent); width: 16px; height: 16px; }
+.do label { cursor: pointer; }
+.do input:checked + label { color: var(--muted); }
+.do input:checked + label strong { text-decoration: line-through; }
+.do label small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+.progress { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); margin-top: 14px; }
+.progress .bar { flex: 1; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; max-width: 320px; }
+.progress .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+@media (prefers-reduced-motion: reduce) { .progress .bar i { transition: none; } }
+
+.sources { font-size: 13px; color: var(--muted); }
+footer { margin-top: 40px; font-size: 12.5px; color: var(--muted); }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+</style>
+</head>
+<body>
+<aside class="side">
+  <div class="brand"><b>冰岛三人行</b><span>2026.12.13 – 12.17</span></div>
+  <nav id="nav" aria-label="主导航">
+    <a href="#overview" data-tab="trip"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l6-10 4 6 3-4 5 8z"/><circle cx="17" cy="6" r="2"/></svg><span>行程</span></a>
+    <a href="#before" data-tab="visa"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M9 16h6"/></svg><span>签证</span></a>
+  </nav>
+  <div class="foot">勾选只存在你自己的浏览器里，三个人各打各的。</div>
+</aside>
+<main class="main"><div class="wrap">
+<div class="tab" id="tab-trip" data-tab="trip">
+
+<header class="top">
+  <div class="eyebrow">ICELAND · 3 人 · 2026 冬</div>
+  <h1>冰岛三人行 12.13–12.17</h1>
+  <p class="sub">三个人，5 天 4 晚，住雷克雅未克，景点全部跟团，不自驾。两个男生合住一间，女生单独住。价格是 2026 年 10 月 4 日在携程、Trip.com 和各家官网查的。</p>
+  <div class="status">
+    <span><span class="pill fix">已定</span>日期、机票、签证，照着办</span>
+    <span><span class="pill tbd">待商量</span>住哪家、报哪家团、每天细节，三个人还可以改</span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="目录">
+  <a href="#overview">总览</a><a href="#visa">签证</a><a href="#flights">机票</a><a href="#transport">去机场</a><a href="#bags">行李</a><a href="#stay">住宿</a><a href="#days">每日行程</a><a href="#budget">预算</a><a href="#tours">各个团</a><a href="#book">预订顺序</a><a href="#food">吃饭</a><a href="#gear">装备</a><a href="#safety">安全</a><a href="#sights">景点图片</a><a href="#upgrade">想加钱</a><a href="#sources">来源</a>
+</nav>
+
+<section id="overview">
+  <h2>总览</h2>
+  <p class="lead">12 月 13 日（周日）下午从盖特威克飞，17 日（周四）傍晚飞回来。中间三天：黄金圈、卡特拉冰洞加南岸、市区机动日，最后一天早上泡蓝湖再去机场。</p>
+  <div class="stats">
+    <div class="stat pick"><div class="k">男生每人</div><div class="v">≈ £1,335</div><div class="d">两人合住双床间</div></div>
+    <div class="stat"><div class="k">女生</div><div class="v">≈ £1,430–1,490</div><div class="d">单人间，看选哪家</div></div>
+    <div class="stat"><div class="k">每天白天</div><div class="v num">11:20–15:30</div><div class="d">一天只排一件大事</div></div>
+  </div>
+  <div class="day" aria-label="12月中旬雷克雅未克白天时长">
+    <div class="bar"><div class="lit"></div></div>
+    <div class="ticks"><span>0:00</span><span>6:00</span><span>11:20 ☀ 15:30</span><span>18:00</span><span>24:00</span></div>
+  </div>
+  <div class="callout"><strong>现在最急：</strong>三个人这周各自注册 VFS 冰岛账号，约 10 月底、同一天的伦敦递签位置。签证下不来，后面全白订。</div>
+  <p class="muted small">汇率按 £1 ≈ 160 ISK（克朗）、£1 ≈ ¥8.88 算。预算里包含 Perlan（可选，£46），不去就每人少 £46。</p>
+</section>
+
+<section id="visa">
+  <h2>申根签证<span class="pill fix">已定</span></h2>
+  <div class="note"><strong>一步一步怎么办，看单独的签证攻略：</strong><a href="#before">签证攻略</a>（左边 / 底部点“签证”）。里面有 VFS 注册预约、两份表逐项照填、材料清单和递签当天的安排。</div>
+  <p>三个人每人单独递一份，但机票、住宿、行程单可以共用同一套。只去冰岛，就递冰岛签证，通过 VFS 办。英国只有<strong>伦敦</strong>和<strong>爱丁堡</strong>两个中心，我们约伦敦。签证费 €90 + 服务费 €40，每人共 €130（约 £113），刷卡或现金，拒签不退。</p>
+  <ol class="steps">
+    <li><span class="when">本周 10/4–10/11</span><span>三个人各自在 VFS 冰岛英国页面注册账号，约伦敦的位置，尽量同一天、挨着的时段。12 月圣诞前是旺季，位置不好约。</span></li>
+    <li><span class="when">约好后马上</span><span>各自在线填两份表：标准申根表，加冰岛政府网站（visa.government.is）上的第二份表。<strong>姓名和护照首页一字不差：Surname 填姓，Given names 填名。</strong>子俊上次就是这里填反了。</span></li>
+    <li><span class="when">递签前一周</span><span>订好机票、住宿（选免费取消）、买保险，下面清单里的材料各自备齐。</span></li>
+    <li><span class="when">10 月下旬–11 月初</span><span>三个人一起去伦敦递材料、录指纹，每人 15–20 分钟。</span></li>
+    <li><span class="when">递上后约 15 天</span><span>拿回护照和签证。大使馆说的是至少 15 天，别卡着日子。</span></li>
+    <li class="last"><span class="when">底线 11 月 15 日</span><span>到这天还没递上，12 月就悬了，要考虑改期。</span></li>
+  </ol>
+
+  <h3>每个人要准备的材料</h3>
+  <ul class="checks">
+    <li><input type="checkbox" id="v1"><label for="v1">护照原件 + 首页复印件（离开申根区后还要有 3 个月以上有效期，至少 2 页空白）</label></li>
+    <li><input type="checkbox" id="v2"><label for="v2">两份申请表，签好字</label></li>
+    <li><input type="checkbox" id="v3"><label for="v3">白底彩色证件照 35×45mm，6 个月内拍的</label></li>
+    <li><input type="checkbox" id="v4"><label for="v4">英国居留证明：eVisa share code 打印件或 BRP</label></li>
+    <li><input type="checkbox" id="v5"><label for="v5">往返机票（三个人一个订单，每人打印一份）</label></li>
+    <li><input type="checkbox" id="v6"><label for="v6">每一晚的住宿确认单，上面要有自己的名字（合住的订房时把同住人名字也填上）</label></li>
+    <li><input type="checkbox" id="v7"><label for="v7">旅行保险：申根有效，医疗保额 ≥ €30,000，覆盖 12/13–12/17</label></li>
+    <li><input type="checkbox" id="v8"><label for="v8">近 3 个月银行流水（官方 PDF 或盖章版）</label></li>
+    <li><input type="checkbox" id="v9"><label for="v9">学校在读证明（Student Hub 申请）</label></li>
+    <li><input type="checkbox" id="v10"><label for="v10">行程单（打印本页“每日行程”）</label></li>
+  </ul>
+
+  <h3>去伦敦递签怎么走</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>方式</th><th>时长</th><th class="r">价格</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td>大巴 National Express 032<span class="tag">推荐</span></td><td class="num nw">约 2h35</td><td class="r">£6.40 起/单程</td><td>Harbour Parade 上车，直达 Victoria Coach Station</td></tr>
+      <tr><td>火车 SWR</td><td class="num nw">约 1h20</td><td class="r">Trainline 查</td><td>Southampton Central 到 Waterloo，快但贵，有 Railcard 打折</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>约中午以后的时段，坐早上 8–9 点的大巴就来得及，提前 15 分钟到。</li>
+    <li>伦敦中心的具体地址写在预约确认信上，出发前查好从 Victoria 过去的路线。</li>
+    <li>当天带：预约确认信打印件、护照、全部材料原件和复印件、银行卡。</li>
+  </ul>
+</section>
+
+<section id="flights">
+  <h2>机票<span class="pill fix">已定</span></h2>
+  <p>易捷来回都走<strong>盖特威克北航站楼</strong>，每人往返 <strong>¥721（约 £81）</strong>。这是只含一个小包的基础价，大件手提另外买，见“行李”。</p>
+  <div class="flight">
+    <div class="leg">
+      <div class="when">去程 · 12 月 13 日 周日</div>
+      <div class="fn">易捷 U2 8843</div>
+      <div class="route"><b>15:55</b><span>盖特威克 N</span><b>→ 19:20</b><span>凯夫拉维克</span></div>
+    </div>
+    <div class="leg">
+      <div class="when">回程 · 12 月 17 日 周四</div>
+      <div class="fn">易捷 U2 8846</div>
+      <div class="route"><b>14:15</b><span>凯夫拉维克</span><b>→ 17:25</b><span>盖特威克 N</span></div>
+    </div>
+  </div>
+  <ul>
+    <li><strong>三个人一个订单一起买</strong>，座位能挨着，乘客姓名和护照完全一致。</li>
+    <li>可以直接买真票，递签用；被拒签只损失这张票。价格随时会涨，下单前和 easyJet 官网比一下。</li>
+    <li>冰岛和英国冬天同一个时区，上面都是当地时间。</li>
+  </ul>
+  <h3>为什么是这一组</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>日期</th><th>每人往返</th><th>问题</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td class="nw">12/13–12/17</td><td class="r">¥721</td><td>周日走，放假后能歇一天；回程 14:15 起飞，早上来得及泡蓝湖</td></tr>
+      <tr><td class="nw">12/12–12/16</td><td class="r">¥647</td><td>回程 12:30 起飞，蓝湖去机场最早的车 12:00 才发，赶不上</td></tr>
+      <tr><td class="nw">12/13–12/18</td><td class="r">¥681</td><td>回程 22:00 才落地，回南安普顿可能没车了</td></tr>
+      <tr><td class="nw">希思罗（英航）</td><td class="r">¥1,359 起</td><td>同日期贵 £70 左右，没必要</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="transport">
+  <h2>去机场、在冰岛怎么走<span class="pill tbd">待商量</span></h2>
+  <h3>南安普顿 ↔ 盖特威克</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>方式</th><th>时长</th><th class="r">单程</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr class="rec"><td>火车<span class="tag">推荐</span></td><td class="num nw">1h34–2h</td><td class="r">£9 起</td><td>Southampton Central 出发，大多要换一次车。提前订最便宜，临时买 £27–34。有 16-25 或 26-30 Railcard 再打三分之一折</td></tr>
+      <tr><td>大巴 National Express / FlixBus</td><td class="num nw">约 2h30</td><td class="r">£12 起</td><td>Harbour Parade 或学校站上车，每天 8 班直达，到盖特威克北或南航站楼</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><strong>12/13 去：</strong>11:00 左右从南安普顿出发，13:30 前到机场，离 15:55 起飞两个多小时。只带手提行李，不用排托运。</li>
+    <li><strong>12/17 回：</strong>17:25 落地，18:00 左右上火车，20:00 前后回到南安普顿。</li>
+    <li>周日火车常有工程改线，出发前一周在 Trainline 再确认一次。</li>
+  </ul>
+
+  <h3>在冰岛</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>路段</th><th>坐什么</th><th class="r">每人</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">12/13 机场 → 市区</td><td>Flybus</td><td class="r">3,999 ISK ≈ £25</td><td>45 分钟到 BSÍ 车站，跟着航班发车，晚点也等。加钱可以送到酒店附近</td></tr>
+      <tr><td class="nw">每天跟团</td><td>团的小巴</td><td class="r">团费含</td><td>市中心不让大巴进，一般在指定的 Bus Stop 上车，订团时会告诉你是几号</td></tr>
+      <tr><td class="nw">12/17 市区 → 蓝湖 → 机场</td><td>Destination Blue Lagoon 大巴</td><td class="r">约 £30</td><td>在蓝湖官网和门票一起订。蓝湖去机场 12:00 / 14:30 / 16:00 三班，我们坐 12:00。市区出发的时间冬天每天 3–5 班，<strong>订票时确认</strong></td></tr>
+      <tr><td class="nw">市区里</td><td>走路，偶尔打车</td><td class="r">—</td><td>冰岛没有 Uber。Perlan 前台能帮忙叫车</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="bags">
+  <h2>行李（易捷）<span class="pill tbd">待商量</span></h2>
+  <div class="tbl"><table>
+    <thead><tr><th>类型</th><th>尺寸 / 重量</th><th class="r">价格</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>座位底下的小包</td><td class="num">45×36×20cm，≤ 15kg</td><td class="r">免费</td><td>每人一个，必须塞进前排座位底下</td></tr>
+      <tr class="rec"><td>大件手提（拉杆箱）<span class="tag">推荐</span></td><td class="num">56×45×25cm</td><td class="r">每段 £7–43</td><td>网上越早买越便宜，到登机口再补要 £60。买了能用头顶行李架，还带优先登机</td></tr>
+      <tr><td>托运</td><td>15kg 或 23kg 两档</td><td class="r">网上查</td><td>5 天用不着</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>建议每人买<strong>去回两段大件手提</strong>，预算按每人 £40 算。</li>
+    <li>冲锋衣和登山鞋上飞机时穿在身上，箱子里就空出一大块。</li>
+    <li>液体每瓶不超过 100ml；充电宝只能放手提，不能托运。</li>
+    <li>易捷在盖特威克查行李尺寸很严，超了当场罚款。</li>
+  </ul>
+</section>
+
+<section id="stay">
+  <h2>住宿（12/13–12/17，4 晚）<span class="pill tbd">待商量</span></h2>
+  <p>都在 Trip.com 查的 4 晚含税总价。住市中心（Miðborg）或附近最方便，各家团都在市中心接人。<a href="https://uk.trip.com/hotels/list?cityId=831&cityName=Reykjavik&checkin=2026-12-13&checkout=2026-12-17&crn=1&adult=2&curr=GBP" target="_blank" rel="noopener">打开 Trip.com 搜索结果</a></p>
+  <h3>两个男生合住</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>住宿</th><th>房型</th><th>位置</th><th class="r">评分</th><th class="r">4 晚总价</th><th class="r">每人</th></tr></thead>
+    <tbody>
+      <tr><td>Guesthouse Pavi<span class="tag">最便宜</span></td><td>双床或大床，共用卫浴</td><td>市区东边</td><td class="r">8.5</td><td class="r">£246</td><td class="r">£123</td></tr>
+      <tr><td>CityHub</td><td>胶囊式 Hub，订时选 Twin Hub（两张床）</td><td>市中心</td><td class="r">9.4</td><td class="r">£312</td><td class="r">£156</td></tr>
+      <tr class="rec"><td>Reykjavik Marina<span class="tag">预算按这个</span></td><td>双床间，独立卫浴</td><td>老港口，走到市中心 10 分钟</td><td class="r">9.0</td><td class="r">£364</td><td class="r">£182</td></tr>
+      <tr><td>Hotel Cabin</td><td>标准双床间</td><td>Laugardalur，离市中心远一点</td><td class="r">7.9</td><td class="r">£372</td><td class="r">£186</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>女生单住（让她自己挑）</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>住宿</th><th>房型</th><th>位置</th><th class="r">评分</th><th class="r">4 晚总价</th></tr></thead>
+    <tbody>
+      <tr><td>Guesthouse Andrea</td><td>小单人间，共用卫浴，含早餐</td><td>市中心</td><td class="r">8.2</td><td class="r">£278</td></tr>
+      <tr><td>Guesthouse Aurora</td><td>单人间，共用卫浴，含早餐</td><td>市中心</td><td class="r">8.9</td><td class="r">£291</td></tr>
+      <tr><td>CityHub</td><td>一个人住 Twin Hub</td><td>市中心</td><td class="r">9.4</td><td class="r">£302</td></tr>
+      <tr class="rec"><td>Hotel Leifur Eiriksson</td><td>单人间</td><td>大教堂正对面</td><td class="r">9.0</td><td class="r">£340</td></tr>
+      <tr><td>Aska Holt</td><td>标准单人间</td><td>市区东边</td><td class="r">8.0</td><td class="r">£341</td></tr>
+      <tr><td>Center Hotels Klopp</td><td>标准单人间</td><td>市中心</td><td class="r">7.7</td><td class="r">£352</td></tr>
+      <tr><td>Hotel Ódinsvé</td><td>单人间（只有 1 小时取消窗口）</td><td>市中心</td><td class="r">8.9</td><td class="r">£390</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>想三个人住同一家也行：CityHub 和 Reykjavik Marina 都有单人能住的房型，到时候在同一家里查。</li>
+    <li><strong>递签用的预订一定选免费取消的。</strong>Ódinsvé 这种 1 小时取消窗口的不适合先订着。拿到签证再换成真正想住的。</li>
+    <li>价格是 10 月 4 日的，12 月是旺季，越晚越贵。</li>
+  </ul>
+</section>
+
+<section id="days">
+  <h2>每日行程<span class="pill tbd">待商量</span></h2>
+  <p>每天白天一个团。12/16 是机动日，12 月风暴多，前两天的团被取消就补到这天。下面的提醒大多来自小红书上 12 月去过的人。</p>
+  <div class="days">
+    <div class="dayc">
+      <div class="d">12/13<small>周日 · 出发</small></div>
+      <div>
+        <p class="t">南安普顿 → 雷克雅未克</p>
+        <ol class="time">
+          <li><span>11:00</span><span>Southampton Central 坐火车去盖特威克</span></li>
+          <li><span>15:55</span><span>易捷 U2 8843 起飞</span></li>
+          <li><span>19:20</span><span>落地凯夫拉维克，坐 Flybus 进城，21:00 左右入住</span></li>
+        </ol>
+        <ul class="tips">
+          <li>市区的超市和餐厅晚上 7 点以后基本关门，<strong>在机场把晚饭和第二天早饭买好</strong>。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="dayc">
+      <div class="d">12/14<small>周一</small></div>
+      <div>
+        <p class="t">黄金圈一日游 + 晚上极光</p>
+        <ol class="time">
+          <li><span>8:00</span><span>在 Bus Stop 等接（天还黑着）</span></li>
+          <li><span>白天</span><span>辛格维利尔国家公园、间歇泉、黄金瀑布，有的团还去 Kerið 火山口</span></li>
+          <li><span>17:00</span><span>回到市区，吃饭歇一会儿</span></li>
+          <li><span>20:30</span><span>极光团出发，约 3–4 小时，半夜回来</span></li>
+        </ol>
+        <ul class="tips">
+          <li>辛格维利尔的石头结冰很滑，有人没带冰爪手脚并用才下去。<strong>鞋用冰爪一定要带。</strong></li>
+          <li>间歇泉 5–10 分钟喷一次，举着手机等，<strong>要戴手套</strong>。旁边餐厅的鱼汤和羊腿有人推荐。</li>
+          <li>极光团<strong>当天下午看 vedur.is 的极光和云量预报再订</strong>，云多就改到 12/16。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="dayc">
+      <div class="d">12/15<small>周二</small></div>
+      <div>
+        <p class="t">卡特拉冰洞 + 南岸</p>
+        <ol class="time">
+          <li><span>9:00</span><span>出发（各家 8:00–9:00 开始接人）</span></li>
+          <li><span>白天</span><span>塞里雅兰瀑布、斯科加瀑布、维克黑沙滩，每个点停 40 分钟左右</span></li>
+          <li><span>下午</span><span>在冰洞基地换超级吉普上冰川，进洞约 1 小时，这段一共约 3 小时</span></li>
+          <li><span>20:00</span><span>回到市区，晚点也常见</span></li>
+        </ol>
+        <ul class="tips">
+          <li><strong>防水硬底登山鞋是必须的</strong>，洞里有水坑，冰爪要绑在鞋上。鞋不行会被拒绝上冰川。</li>
+          <li>吉普那段雪地很颠，<strong>容易晕车的提前吃药、坐前排</strong>。</li>
+          <li><strong>换吉普前先上厕所</strong>，上了冰川三四个小时没厕所。</li>
+          <li>冰洞颜色看当天光线，原图偏灰白，不一定都像网上那么蓝。冰洞每周都在变。</li>
+          <li>黑沙滩浪很危险，离水边远一点。这天晚上不排极光，早点睡。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="dayc flex">
+      <div class="d">12/16<small>周三 · 机动</small></div>
+      <div>
+        <p class="t">补团，没有要补的就逛市区</p>
+        <ol class="time">
+          <li><span>11:00</span><span>哈尔格林姆斯教堂登塔（1,500 ISK，10:00–16:45，只能现场买），看彩色屋顶、港口和雪山</span></li>
+          <li><span>12:00</span><span>沿彩虹街走到洛加维格大街，吃 Svarta Kaffið 的面包碗汤</span></li>
+          <li><span>13:30</span><span>哈帕音乐厅（免费进去逛），沿海边走到太阳航海者雕塑</span></li>
+          <li><span>14:30</span><span>打车去 Perlan（可选）：先到四楼露台看 15:30 日落，再看极光秀和火山体验</span></li>
+          <li><span>晚上</span><span>极光没看到就再跟一次团；预报很强就打车去格罗塔灯塔，不花钱</span></li>
+        </ol>
+        <ul class="tips">
+          <li>Perlan 每 30 分钟一场演出，有讲解，不能拍照，开到 21:00。整栋楼只有一个厕所，女生排队 20 分钟起，进去前先解决。</li>
+          <li>这天要补团的话，Perlan 挪到补完团的晚上去。</li>
+          <li>晚上把行李收好，第二天一早退房。</li>
+        </ul>
+      </div>
+    </div>
+    <div class="dayc">
+      <div class="d">12/17<small>周四 · 回程</small></div>
+      <div>
+        <p class="t">蓝湖 → 机场 → 南安普顿</p>
+        <ol class="time">
+          <li><span>早上</span><span>退房，坐蓝湖大巴从市区出发（车程约 40 分钟，班次订票时定）</span></li>
+          <li><span>9:30</span><span>入场，泡到 11:30。10 点后天开始亮，好拍照的是最后一个多小时</span></li>
+          <li><span>12:00</span><span>坐蓝湖的大巴去机场，约 30 分钟</span></li>
+          <li><span>14:15</span><span>易捷 U2 8846 起飞，17:25 到盖特威克，坐火车回南安普顿</span></li>
+        </ol>
+        <ul class="tips">
+          <li>进门领手环，进出、储物柜、买东西都刷它。下水前必须先冲澡，侧边带手柄的花洒可以只冲身体。</li>
+          <li><strong>女生别把头发泡进水里</strong>，会干枯好几周，扎起来再抹点护发素。</li>
+          <li>蓝湖能不能寄存拉杆箱还没确认，<strong>订票时问清楚</strong>。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="budget">
+  <h2>预算明细（每人）<span class="pill tbd">待商量</span></h2>
+  <p>男生按 Reykjavik Marina 合住算。女生只有住宿不一样，换成单人间那一行。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>项目</th><th class="r">男生</th><th class="r">女生</th><th>说明</th></tr></thead>
+    <tbody>
+      <tr><td>签证（签证费 + 服务费）</td><td class="r">£113</td><td class="r">£113</td><td>€90 + €40</td></tr>
+      <tr><td>去伦敦递签的大巴往返</td><td class="r">£15</td><td class="r">£15</td><td>National Express</td></tr>
+      <tr><td>旅行保险</td><td class="r">£20</td><td class="r">£20</td><td>估计</td></tr>
+      <tr><td>机票</td><td class="r">£81</td><td class="r">£81</td><td>¥721 往返</td></tr>
+      <tr><td>大件手提行李</td><td class="r">£40</td><td class="r">£40</td><td>去回两段，越早买越便宜</td></tr>
+      <tr><td>南安普顿 ↔ 盖特威克火车</td><td class="r">£40</td><td class="r">£40</td><td>往返估计，有 Railcard 更便宜</td></tr>
+      <tr><td>Flybus 机场 → 市区</td><td class="r">£25</td><td class="r">£25</td><td>3,999 ISK</td></tr>
+      <tr><td>市区 → 蓝湖 → 机场</td><td class="r">£30</td><td class="r">£30</td><td>估计，订票时确认</td></tr>
+      <tr><td>住宿 4 晚</td><td class="r">£182</td><td class="r">£278–340</td><td>Marina 合住 / Andrea 到 Leifur 单人间</td></tr>
+      <tr><td>黄金圈一日游</td><td class="r">£81</td><td class="r">£81</td><td>13,008 ISK</td></tr>
+      <tr><td>卡特拉冰洞 + 南岸</td><td class="r">£225</td><td class="r">£225</td><td>35,990 ISK</td></tr>
+      <tr><td>极光小巴团</td><td class="r">£87</td><td class="r">£87</td><td>13,990 ISK，大巴团便宜 £25</td></tr>
+      <tr><td>教堂登塔</td><td class="r">£9</td><td class="r">£9</td><td>1,500 ISK</td></tr>
+      <tr><td>Perlan（可选）</td><td class="r">£46</td><td class="r">£46</td><td>约 7,290 ISK</td></tr>
+      <tr><td>蓝湖 Comfort 票</td><td class="r">£100</td><td class="r">£100</td><td>11,990 ISK 起，越晚订越贵，按 £100 留</td></tr>
+      <tr><td>吃饭 5 天</td><td class="r">£200</td><td class="r">£200</td><td>每天 £40，超市 + 偶尔下馆子</td></tr>
+      <tr><td>流量、杂费、纪念品</td><td class="r">£40</td><td class="r">£40</td><td></td></tr>
+      <tr class="total"><td>合计</td><td class="r">£1,334</td><td class="r">£1,430–1,492</td><td></td></tr>
+      <tr class="sub"><td>不去 Perlan</td><td class="r">£1,288</td><td class="r">£1,384–1,446</td><td></td></tr>
+      <tr class="sub"><td>男生改住 Pavi（共用卫浴）</td><td class="r">£1,275</td><td class="r">—</td><td></td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li>冰爪（£10–15）、暖宝宝这些装备没算进去。</li>
+    <li>冰岛吃饭贵：一瓶可乐约 30 元人民币，餐厅人均 200 元以上。餐厅分量大，两个人一份主菜加面包就够。</li>
+  </ul>
+</section>
+
+<section id="tours">
+  <h2>各个团<span class="pill tbd">待商量</span></h2>
+  <p>价格都是官网标价，从雷克雅未克市中心出发。同样的团在 GetYourGuide 上也能订，有时更便宜，取消规则以下单页为准。</p>
+  <div class="tours">
+    <article class="tour">
+      <div class="t">黄金圈经典一日游</div>
+      <div class="p">£81 <small>13,008 ISK</small></div>
+      <dl>
+        <dt>时间</dt><dd>约 9:00–17:00</dd>
+        <dt>包含</dt><dd>接送、英文导游；辛格维利尔、间歇泉、黄金瀑布、Kerið 火山口、冰岛马农场</dd>
+        <dt>取消</dt><dd>提前 24 小时免费</dd>
+      </dl>
+      <a class="go" href="https://www.goldencircledaytours.is/guides/golden-circle-tour-prices" target="_blank" rel="noopener">去看 →</a>
+    </article>
+    <article class="tour">
+      <div class="t">卡特拉冰洞 + 南岸：三家比一比</div>
+      <dl>
+        <dt>IH</dt><dd><strong>Iceland Highlights 35,990 ISK（£225）</strong>，9:00–20:00；提前 48 小时退 90%，48 小时内不退；天气取消全退</dd>
+        <dt>Troll</dt><dd>$299 起（约 £225），约 12 小时；小红书两篇报的这家</dd>
+        <dt>AA</dt><dd>Arctic Adventures 标 $197 起，这是维克出发的价，雷克雅未克出发的更贵，订时看</dd>
+        <dt>注意</dt><dd>都不含鞋，防水硬底登山鞋自备；头盔冰爪发</dd>
+      </dl>
+      <span class="go"><a href="https://www.iceland-highlights.com/tour/katla-ice-cave-tour-from-reykjavik/" target="_blank" rel="noopener">IH →</a> · <a href="https://troll.is/info/troll-katla-ice-cave-day-tour-from-reykjavik/" target="_blank" rel="noopener">Troll →</a> · <a href="https://adventures.com/iceland/tours/activities/ice-caves/katla-ice-cave-under-the-volcano/" target="_blank" rel="noopener">AA →</a></span>
+    </article>
+    <article class="tour">
+      <div class="t">极光团</div>
+      <div class="p">£62–87 <small>9,990–13,990 ISK</small></div>
+      <dl>
+        <dt>小巴</dt><dd>Bus Travel 小巴团 13,990 ISK，约 4 小时。小红书说大巴人多，有人开闪光灯挡镜头，<strong>建议小巴</strong></dd>
+        <dt>大巴</dt><dd>Bus Travel 大巴 9,990 ISK；RE 大巴团没看到可免费重订、不限次数、两年有效，价格订时看</dd>
+        <dt>怎么订</dt><dd>当天看预报再订，订前确认“没看到能不能免费再来”</dd>
+      </dl>
+      <span class="go"><a href="https://bustravel.is/" target="_blank" rel="noopener">Bus Travel →</a> · <a href="https://www.re.is/tour/northern-lights-tour/" target="_blank" rel="noopener">RE →</a></span>
+    </article>
+    <article class="tour">
+      <div class="t">蓝湖 Blue Lagoon</div>
+      <div class="p">11,990 ISK 起 <small>Comfort 票</small></div>
+      <dl>
+        <dt>包含</dt><dd>入场、硅泥面膜、一杯饮料、毛巾、储物柜</dd>
+        <dt>时间</dt><dd>12 月 8:00–22:00，关门前 30 分钟出水</dd>
+        <dt>价格</dt><dd>按时段浮动，越早越便宜。小红书有人提前两个月订 ¥1,040，临时订变成 ¥1,232</dd>
+      </dl>
+      <a class="go" href="https://www.bluelagoon.com/day-visit/the-blue-lagoon" target="_blank" rel="noopener">去订 →</a>
+    </article>
+    <article class="tour">
+      <div class="t">Perlan 珍珠楼（可选）</div>
+      <div class="p">≈ £46 <small>约 7,290 ISK</small></div>
+      <dl>
+        <dt>看什么</dt><dd>8K 极光秀、火山纪录片和 4D 体验、人造冰洞、四楼露台看日落</dd>
+        <dt>时间</dt><dd>9:00–21:00，最后入场 19:30，玩 2–3 小时</dd>
+        <dt>为什么</dt><dd>不怕天气；万一没看到真极光，极光秀能补一点</dd>
+      </dl>
+      <a class="go" href="https://adventures.is/iceland/attractions/perlan/" target="_blank" rel="noopener">看介绍 →</a>
+    </article>
+    <article class="tour">
+      <div class="t">哈尔格林姆斯教堂登塔</div>
+      <div class="p">£9 <small>1,500 ISK</small></div>
+      <dl>
+        <dt>时间</dt><dd>冬天 10:00–16:45</dd>
+        <dt>注意</dt><dd>不能提前订，在教堂商店现场买；有礼拜或音乐会时会关</dd>
+      </dl>
+      <a class="go" href="https://www.hallgrimskirkja.is/en-gb/opnunartimar" target="_blank" rel="noopener">开放时间 →</a>
+    </article>
+  </div>
+</section>
+
+<section id="book">
+  <h2>预订顺序</h2>
+  <p>先订递签要用的（机票、住宿、保险），各个团等签证下来再订。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>什么时候</th><th>订什么</th><th>在哪订</th><th>注意</th></tr></thead>
+    <tbody>
+      <tr><td class="nw">本周</td><td>VFS 递签位置 ×3</td><td>VFS 冰岛英国页面</td><td>伦敦，三个人同一天</td></tr>
+      <tr><td class="nw">约好以后</td><td>机票 + 大件手提</td><td>携程 / easyJet 官网</td><td>一个订单三个人</td></tr>
+      <tr><td class="nw">约好以后</td><td>住宿 4 晚</td><td>Trip.com / Booking</td><td>选免费取消，写上同住人名字</td></tr>
+      <tr><td class="nw">约好以后</td><td>旅行保险</td><td>申根旅行保险</td><td>保额 ≥ €30,000</td></tr>
+      <tr><td class="nw">拿到签证（11 月中）</td><td>黄金圈、卡特拉冰洞</td><td>官网或 GetYourGuide</td><td>12 月是旺季，冰洞团满得快</td></tr>
+      <tr><td class="nw">拿到签证（11 月中）</td><td>蓝湖门票 + 大巴</td><td>蓝湖官网</td><td>12/17 早上，越早越便宜</td></tr>
+      <tr><td class="nw">出发前 2–4 周</td><td>去盖特威克的火车</td><td>Trainline</td><td>早订便宜</td></tr>
+      <tr><td class="nw">出发前一周</td><td>Flybus</td><td>flybus.is</td><td>12/13 晚上进城</td></tr>
+      <tr><td class="nw">当天</td><td>极光团</td><td>官网</td><td>看完预报再订</td></tr>
+      <tr><td class="nw">现场</td><td>教堂登塔、Perlan</td><td>现场 / 官网</td><td>不用提前</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="food">
+  <h2>吃饭</h2>
+  <ul>
+    <li><strong>Bónus 超市</strong>（粉色小猪标志）买早饭、午饭、零食，最省钱。冰岛自来水能直接喝。</li>
+    <li><strong>Bæjarins Beztu 热狗</strong>：最便宜的一顿，约 600–700 ISK（£4）。</li>
+    <li><strong>Svarta Kaffið</strong>：面包碗汤，分量足，店员热情。</li>
+    <li><strong>Fish Company</strong>：好吃但贵，龙虾汤和煎鱼有人推荐，想吃顿好的去这家。</li>
+    <li><strong>Messinn</strong>：推荐的人多，但去过的人觉得一般。</li>
+    <li>间歇泉旁边的餐厅：鱼汤很浓，羊腿不腥。</li>
+    <li>餐厅主菜一般 3,500–6,500 ISK（£22–40）。</li>
+  </ul>
+</section>
+
+<section id="gear">
+  <h2>装备清单</h2>
+  <p>12 月一般在 0℃ 上下，风很大，湿冷。按防水、防风、分层来穿。勾选只保存在你自己的浏览器里。</p>
+  <ul class="checks">
+    <li><input type="checkbox" id="g1"><label for="g1">防水防风冲锋衣（普通羽绒服下雪会湿透）</label></li>
+    <li><input type="checkbox" id="g2"><label for="g2">冲锋裤或防水裤</label></li>
+    <li><input type="checkbox" id="g3"><label for="g3">保暖内衣 + 抓绒或羽绒中间层</label></li>
+    <li><input type="checkbox" id="g4"><label for="g4">防水硬底登山鞋（卡特拉团必须）</label></li>
+    <li><input type="checkbox" id="g5"><label for="g5">鞋用冰爪 / 防滑链，£10–15</label></li>
+    <li><input type="checkbox" id="g6"><label for="g6">毛线帽、触屏防水手套、围巾或脖套</label></li>
+    <li><input type="checkbox" id="g7"><label for="g7">羊毛袜 2–3 双</label></li>
+    <li><input type="checkbox" id="g8"><label for="g8">暖宝宝（贴衣服里，也能贴手机防自动关机）</label></li>
+    <li><input type="checkbox" id="g9"><label for="g9">保温杯</label></li>
+    <li><input type="checkbox" id="g10"><label for="g10">晕车药（卡特拉那天）</label></li>
+    <li><input type="checkbox" id="g11"><label for="g11">泳衣（蓝湖）、扎头发的皮筋</label></li>
+    <li><input type="checkbox" id="g12"><label for="g12">充电宝（只能放手提）</label></li>
+    <li><input type="checkbox" id="g13"><label for="g13">欧标两孔圆头转换插头</label></li>
+    <li><input type="checkbox" id="g14"><label for="g14">头灯或小手电</label></li>
+  </ul>
+</section>
+
+<section id="safety">
+  <h2>安全与实用</h2>
+  <ul>
+    <li><strong>维克黑沙滩有“疯狗浪”</strong>，每年都有游客被卷走。离水边 30 米以上，别背对大海拍照。</li>
+    <li>冰川、冰洞跟着向导走，冰爪全程穿着。出洞的大坡前面有人就别往下滑。</li>
+    <li>紧急电话 <strong>112</strong>。出发前可以在 safetravel.is 留行程。</li>
+    <li>天气和极光预报看 vedur.is，路况看 road.is。手机可以装个 Starwalk，没极光时认认星座。</li>
+    <li>几乎全部刷卡，不用换克朗。出发前查一下英国手机套餐在冰岛能不能漫游。</li>
+    <li>把行程、住宿地址、航班号发给家里人。</li>
+  </ul>
+</section>
+
+<section id="sights">
+  <h2>景点图片、视频和攻略</h2>
+  <p>点“小红书”要先在浏览器里登录小红书。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>景点</th><th>是什么</th><th>哪天</th><th>看看</th></tr></thead>
+    <tbody>
+      <tr><td>辛格维利尔 Þingvellir</td><td>两个大陆板块之间的裂缝</td><td class="nw">12/14</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Thingvellir+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Thingvellir+winter" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=辛格维利尔国家公园 冬天" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>间歇泉 Strokkur</td><td>每 5–10 分钟喷一次</td><td class="nw">12/14</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Strokkur+geyser+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Strokkur+geyser+eruption" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=冰岛 间歇泉" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>黄金瀑布 Gullfoss</td><td>两级大瀑布，冬天半结冰</td><td class="nw">12/14</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Gullfoss+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Gullfoss+winter" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=冰岛 黄金圈 12月" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>Kerið 火山口湖</td><td>红色火山口里的湖</td><td class="nw">12/14</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Kerid+crater+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Kerid+crater" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=Kerid 火山口" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>极光</td><td>12 月旺季，看天</td><td class="nw">晚上</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=northern+lights+Reykjavik" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=northern+lights+tour+Reykjavik" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=冰岛 极光团 12月" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>塞里雅兰瀑布</td><td>能绕到后面，结冰时常封路</td><td class="nw">12/15</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Seljalandsfoss+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Seljalandsfoss+winter" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=塞里雅兰瀑布 冬天" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>斯科加瀑布</td><td>60 米高的方形瀑布</td><td class="nw">12/15</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Skogafoss+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Skogafoss+winter" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=斯科加瀑布" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>维克黑沙滩</td><td>黑沙加玄武岩柱，浪很危险</td><td class="nw">12/15</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Reynisfjara+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Reynisfjara+black+sand+beach" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=冰岛 黑沙滩" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>卡特拉冰洞</td><td>冰里夹火山灰，黑蓝相间</td><td class="nw">12/15</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Katla+ice+cave" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Katla+ice+cave+tour" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=卡特拉冰洞 12月" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>哈尔格林姆斯教堂</td><td>地标，登塔看全城</td><td class="nw">12/16</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Hallgrimskirkja+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Reykjavik+winter+walk" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=雷克雅未克 市区 攻略 冬天" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>哈帕音乐厅 + 太阳航海者</td><td>玻璃音乐厅和海边船骨雕塑</td><td class="nw">12/16</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Harpa+Sun+Voyager+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Harpa+Sun+Voyager" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=太阳航海者 雷克雅未克" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>Perlan 珍珠楼</td><td>极光秀、火山体验、观景台</td><td class="nw">12/16</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Perlan+Reykjavik" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Perlan+Wonders+of+Iceland" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=Perlan 珍珠楼" target="_blank" rel="noopener">小红书</a></td></tr>
+      <tr><td>蓝湖</td><td>乳蓝色的地热温泉</td><td class="nw">12/17</td><td class="nw"><a href="https://www.google.com/search?tbm=isch&q=Blue+Lagoon+Iceland+winter" target="_blank" rel="noopener">图片</a> · <a href="https://www.youtube.com/results?search_query=Blue+Lagoon+Iceland+winter" target="_blank" rel="noopener">视频</a> · <a href="https://www.xiaohongshu.com/search_result?keyword=蓝湖 12月" target="_blank" rel="noopener">小红书</a></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="upgrade">
+  <h2>想加钱可以换成的<span class="pill tbd">以后商量</span></h2>
+  <div class="tbl"><table>
+    <thead><tr><th>换成什么</th><th class="r">大概</th><th>多看到什么</th><th>代价</th></tr></thead>
+    <tbody>
+      <tr><td>两日游：冰河湖 + 水晶蓝冰洞</td><td class="r">£531/人</td><td>冰河湖、钻石沙滩、通透的蓝冰洞</td><td>代替卡特拉和机动日，每人多 £300 左右；没有机动日，团被取消就全没了。单住要加 12,000 ISK 房差</td></tr>
+      <tr><td>冰河湖一日游</td><td class="r">约 £175/人</td><td>冰河湖、钻石沙滩</td><td>14–16 小时，大半天黑着坐车，瀑布会重复看一遍；12 月没有游船</td></tr>
+      <tr><td>斯奈山半岛一日游</td><td class="r">£181/人</td><td>草帽山、黑教堂、海边石拱</td><td>要多加一天，含午饭，约 11 小时</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="sources">
+  <h2>资料来源</h2>
+  <ul class="sources">
+    <li><a href="https://visa.vfsglobal.com/one-pager/iceland/uk/english/" target="_blank" rel="noopener">VFS 冰岛英国</a> · <a href="https://www.government.is/ministries/diplomatic-missions/london-united-kingdom/visit-iceland/" target="_blank" rel="noopener">冰岛驻伦敦使馆</a> · <a href="https://www.nationalexpress.com/en/destinations/london/southampton-to-london" target="_blank" rel="noopener">National Express</a></li>
+    <li><a href="https://flights.ctrip.com/online/list/round-lon-rek?depdate=2026-12-13_2026-12-17&cabin=y_s&adult=3&child=0&infant=0" target="_blank" rel="noopener">携程机票</a> · <a href="https://www.easyjet.com/en/help/baggage/cabin-bag-and-hold-luggage" target="_blank" rel="noopener">易捷行李规定</a> · <a href="https://www.omio.co.uk/trains/southampton-central/gatwick-airport-sn5bz" target="_blank" rel="noopener">Omio 火车</a> · <a href="https://www.omio.co.uk/coaches/southampton/london-gatwick-airport-vn9iw" target="_blank" rel="noopener">Omio 大巴</a></li>
+    <li><a href="https://uk.trip.com/hotels/list?cityId=831&cityName=Reykjavik&checkin=2026-12-13&checkout=2026-12-17&crn=1&adult=2&curr=GBP" target="_blank" rel="noopener">Trip.com 住宿</a> · <a href="https://flybus.is/keflavik-reykjavik-airport-transfer/" target="_blank" rel="noopener">Flybus</a> · <a href="https://destinationbluelagoon.is/schedule" target="_blank" rel="noopener">蓝湖大巴时刻</a> · <a href="https://www.bluelagoon.com/opening-hours" target="_blank" rel="noopener">蓝湖开放时间</a></li>
+    <li><a href="https://www.timeofsunrise.com/reykjavik/december" target="_blank" rel="noopener">12 月日出日落</a> · <a href="https://wakeupreykjavik.com/tour/2-day-glacier-lagoon-and-ice-cave" target="_blank" rel="noopener">两日游</a> · <a href="https://adventures.is/iceland/day-tours/sightseeing-tours/jokulsarlon-skaftafell-from-reykjavik/" target="_blank" rel="noopener">冰河湖一日游</a> · <a href="https://wakeupreykjavik.com/tour/snaefellsnes-peninsula-iceland" target="_blank" rel="noopener">斯奈山</a></li>
+    <li>小红书 12 月前后去过的人的笔记（卡特拉冰洞、黄金圈、极光团、蓝湖、雷克雅未克市区、Perlan），只作参考。</li>
+  </ul>
+</section>
+
+<footer>价格于 2026 年 10 月 4 日查询，会变，下单前以各官网为准。</footer>
+
+</div>
+<div class="tab" id="tab-visa" data-tab="visa" hidden>
+
+<header class="top">
+  <div class="eyebrow">ICELAND SCHENGEN VISA · 从英国申请</div>
+  <h1>冰岛申根签证攻略</h1>
+  <p class="sub">三个人 12/13–12/17 去冰岛，从英国（南安普顿）申请短期旅游签证。按顺序一步一步做，每一步做完打勾。勾选只存在你自己的浏览器里，三个人各自打各自的。内容是 2026 年 10 月 4 日从冰岛政府签证网站和 VFS 官网查的。</p>
+  <div class="progress" aria-live="polite"><span id="progtext">已完成 0 / 0</span><div class="bar"><i id="progbar"></i></div></div>
+</header>
+
+<nav class="toc" aria-label="步骤">
+  <a href="#before">开始前</a><a href="#s1">1 注册 VFS</a><a href="#s2">2 预约</a><a href="#s3">3 网上表</a><a href="#s4">4 纸质表</a><a href="#s5">5 材料</a><a href="#s6">6 递签当天</a><a href="#s7">7 等结果</a><a href="#links">网址汇总</a>
+</nav>
+
+<section id="before">
+  <h2>开始前先看</h2>
+  <div class="who">
+    <div><b>每人要花</b><span>约 £113</span><div class="small muted">签证费 €90（£78）+ VFS 服务费 €40，当天刷卡或现金</div></div>
+    <div><b>递签地点</b><span>伦敦 VFS</span><div class="small muted">66 Wilson Street, EC2A 2BT</div></div>
+    <div><b>出结果</b><span>约 15 天</span><div class="small muted">从大使馆收到材料算起</div></div>
+  </div>
+  <ul>
+    <li><strong>每个人都要本人去</strong>，按预约时间到场录指纹，不能一个人替另外两个人交。</li>
+    <li>最早能在出发前 6 个月递，最晚原则上出发前 15 天。我们 12/13 出发，<strong>建议 10 月下旬递</strong>，留出补材料的时间。</li>
+    <li>要填<strong>两份表</strong>：冰岛政府网站上的网上申请表，和一份纸质的申根申请表。两份都要打印签字带去。</li>
+    <li>每个人自己要准备的只有：个人信息、自己的银行流水、在读证明、居留证明。行程相关的内容（日期、目的、酒店、机票）三个人一样，下面表格里都替你填好了。</li>
+  </ul>
+  <div class="callout"><strong>最容易出错的一处：</strong>所有表上的 <strong>Surname（姓）</strong> 和 <strong>Given / First name（名）</strong> 必须和护照首页一模一样，全大写拼音。子俊上次就是姓和名填反了没办成。填完对着护照再看一遍。</div>
+
+  <h3>先在群里确认这 4 件事</h3>
+  <ol>
+    <li>三个人都是<strong>中国护照</strong>吗？中国护照去冰岛需要申根签证。如果有人是别的国籍，先查他需不需要签证。</li>
+    <li>每个人的<strong>英国学生签证有效期</strong>在 <strong>2027 年 3 月 17 日</strong>之后吗？要求是：离开申根区后居留身份还要有 3 个月有效期。</li>
+    <li>每个人的<strong>护照</strong>：签发不超过 10 年，在 2027 年 3 月 17 日以后才过期，至少 2 页空白。</li>
+    <li>钱是<strong>自己出</strong>（用自己的英国银行流水），还是<strong>父母出</strong>（要多交父母流水和亲属关系证明，见第 5 步）？</li>
+  </ol>
+</section>
+
+<section id="s1">
+  <h2><span class="no">1</span>注册 VFS 账号<span class="when">今天就做 · 10 分钟</span></h2>
+  <p>VFS Global 是冰岛大使馆在英国指定的签证中心，预约、递材料、交钱、取护照都在它这儿。</p>
+  <ol class="do">
+    <li><input type="checkbox" id="c1a"><label for="c1a"><strong>打开注册页</strong><small><a href="https://visa.vfsglobal.com/gbr/en/isl/register" target="_blank" rel="noopener">visa.vfsglobal.com/gbr/en/isl/register</a>（英国 · 冰岛专用的入口，别进别的国家的）</small></label></li>
+    <li><input type="checkbox" id="c1b"><label for="c1b"><strong>填 4 项</strong>：Email、Password、Confirm Password、Mobile Number<small>Dial Code 选 +44，填英国手机号（去掉开头的 0）。密码按页面提示设，一般要大小写字母、数字和符号。用自己常看的邮箱，后面所有通知都发这里。</small></label></li>
+    <li><input type="checkbox" id="c1c"><label for="c1c"><strong>勾 3 个同意框</strong>（隐私声明、数据跨境传输、条款），点 <code>Register</code></label></li>
+    <li><input type="checkbox" id="c1d"><label for="c1d"><strong>去邮箱点激活链接</strong><small>没收到先看垃圾邮件。链接过期了就回登录页点 <code>Activate my account</code> 重新发。</small></label></li>
+    <li><input type="checkbox" id="c1e"><label for="c1e"><strong>登录试一下</strong><small><a href="https://visa.vfsglobal.com/gbr/en/isl/login" target="_blank" rel="noopener">visa.vfsglobal.com/gbr/en/isl/login</a></small></label></li>
+  </ol>
+  <div class="note"><strong>三个人各自注册自己的账号</strong>，用自己的邮箱和手机号，预约信、进度通知都发给本人。</div>
+</section>
+
+<section id="s2">
+  <h2><span class="no">2</span>约递签时间<span class="when">本周 · 15 分钟</span></h2>
+  <p class="small muted">下面登录后的按钮名是按 VFS 通用流程写的，个别字眼可能和你看到的不一样，意思是一样的。</p>
+  <ol class="do">
+    <li><input type="checkbox" id="c2a"><label for="c2a"><strong>登录后点 <code>Start New Booking</code></strong>（开始新预约）</label></li>
+    <li><input type="checkbox" id="c2b"><label for="c2b"><strong>选签证中心：London</strong><small>类别选 Short Stay / Schengen Visa（短期申根），子类选 Tourism（旅游）。</small></label></li>
+    <li><input type="checkbox" id="c2c"><label for="c2c"><strong>填申请人信息</strong>：名、姓、性别、出生日期、国籍、护照号、护照有效期、手机、邮箱<small>只填你自己的，姓和名对照护照填。</small></label></li>
+    <li><input type="checkbox" id="c2d"><label for="c2d"><strong>选日期和时段</strong><small>选 <strong>10 月 19 日以后</strong>的，留一周多准备在读证明和银行流水。尽量选中午以后的时段，早上从南安普顿坐大巴来得及。第三方网站显示 10 月初伦敦还有空位，越早约越好。</small></label></li>
+    <li><input type="checkbox" id="c2e"><label for="c2e"><strong>确认，保存预约信</strong><small>邮箱会收到确认信（Appointment Letter），里面有预约号和地址。<strong>打印出来</strong>，当天要给门口看。</small></label></li>
+  </ol>
+  <div class="note"><strong>三个人怎么约到一起：</strong>先约的人把日期和时段发到群里，另外两个人马上登录约同一天、挨着的时段（比如 13:00、13:15、13:30）。空位很快会被抢，最好三个人同时坐在电脑前一起约。</div>
+  <p class="small muted">约不上伦敦就看看爱丁堡（要多等 2 天出结果）。冰岛政府网站上也列了曼彻斯特，但 VFS 官网只写了伦敦和爱丁堡，以预约系统里能选到的为准。</p>
+</section>
+
+<section id="s3">
+  <h2><span class="no">3</span>填冰岛政府的网上申请表<span class="when">约好以后 · 20 分钟</span></h2>
+  <p>网址：<a href="https://visa.government.is/" target="_blank" rel="noopener">visa.government.is</a>。提交后会收到一封<strong>确认邮件</strong>，递签时要给 VFS 看，还要打印一份<strong>签好名的申请表</strong>带去。</p>
+  <div class="legend"><span><span class="a">蓝色等宽字</span> 三个人填一样的，照抄</span><span><span class="b">棕色字</span> 填你自己的</span></div>
+  <div class="tbl"><table>
+    <thead><tr><th>页面上的字段</th><th>填什么</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="2">首页</td></tr>
+      <tr><td class="f">Language</td><td class="fix">English</td></tr>
+      <tr><td class="f">Country of application office</td><td class="fix">UNITED KINGDOM</td></tr>
+      <tr><td class="f">City of application office</td><td class="fix">London</td></tr>
+      <tr class="grp"><td colspan="2">Applicant 个人信息</td></tr>
+      <tr><td class="f">Surname (Family Name)</td><td class="you">护照上的<strong>姓</strong>，全大写拼音，比如 NIU</td></tr>
+      <tr><td class="f">First name(s)</td><td class="you">护照上的<strong>名</strong>，全大写拼音，比如 ZIJUN</td></tr>
+      <tr><td class="f">Surname at birth / Former family name(s)</td><td>没改过姓就空着</td></tr>
+      <tr><td class="f">Date of birth</td><td class="you">出生日期，按页面格式</td></tr>
+      <tr><td class="f">Place of birth</td><td class="you">护照上写的出生地，比如 HEBEI</td></tr>
+      <tr><td class="f">Country of birth</td><td class="fix">CHINA</td></tr>
+      <tr><td class="f">Current nationality</td><td class="fix">CHINA</td></tr>
+      <tr><td class="f">Nationality at birth</td><td>一样就空着</td></tr>
+      <tr><td class="f">Gender</td><td class="you">Male / Female</td></tr>
+      <tr><td class="f">E-mail（填两次）</td><td class="you">自己的邮箱，确认邮件发这里</td></tr>
+      <tr><td class="f">Phone / Country calling code</td><td class="you">UNITED KINGDOM (+44)，英国手机号</td></tr>
+      <tr class="grp"><td colspan="2">Travel document 护照</td></tr>
+      <tr><td class="f">Type of travel document</td><td class="fix">Ordinary passport</td></tr>
+      <tr><td class="f">Travel document number</td><td class="you">护照号</td></tr>
+      <tr><td class="f">Date of issue / Valid until</td><td class="you">护照签发日期 / 有效期至</td></tr>
+      <tr><td class="f">Issued by / Description of issuer</td><td class="you">按护照上“签发机关 Authority”那一栏照抄</td></tr>
+      <tr class="grp"><td colspan="2">Applicant continued 住址和身份</td></tr>
+      <tr><td class="f">Applicants home country</td><td class="fix">UNITED KINGDOM</td></tr>
+      <tr><td class="f">Home city / zip / address</td><td class="you">现在英国的住址，城市 Southampton 和邮编</td></tr>
+      <tr><td class="f">Current occupation</td><td class="fix">Student</td></tr>
+      <tr><td class="f">Employer name</td><td>空着</td></tr>
+      <tr><td class="f">Educational establishment</td><td class="fix">University of Southampton</td></tr>
+      <tr class="grp"><td colspan="2">Journey 行程</td></tr>
+      <tr><td class="f">Main purpose(s) of the journey</td><td class="fix">Tourism</td></tr>
+      <tr><td class="f">Member state of first entry</td><td class="fix">ICELAND</td></tr>
+      <tr><td class="f">Member state of destination</td><td class="fix">ICELAND</td></tr>
+      <tr><td class="f">Number of entries requested</td><td class="fix">Single entry</td></tr>
+      <tr><td class="f">Intended date of arrival</td><td class="fix">13/12/2026</td></tr>
+      <tr><td class="f">Intended date of departure</td><td class="fix">17/12/2026</td></tr>
+      <tr><td class="f">Duration of intended stay (days)</td><td class="fix">5</td></tr>
+      <tr><td class="f">Inviting person(s)</td><td>旅游<strong>不填</strong>，页面上自己也写了</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted">点 Next 之后如果还有页面（住宿、费用之类），答案和第 4 步纸质表里对应的项一样。日期格式按页面要求写，上面写的是 日/月/年。</p>
+  <ol class="do">
+    <li><input type="checkbox" id="c3a"><label for="c3a"><strong>填完提交，收到确认邮件</strong><small>邮件打印一份，手机里也留着。</small></label></li>
+    <li><input type="checkbox" id="c3b"><label for="c3b"><strong>打印网上申请表，签名</strong><small>提交后页面上有 <code>Display application for print out</code>，点开打印，在签名处签字。</small></label></li>
+  </ol>
+</section>
+
+<section id="s4">
+  <h2><span class="no">4</span>填纸质申根申请表<span class="when">约好以后 · 20 分钟</span></h2>
+  <p>下载：<a href="https://www.government.is/library/09-Embassies/Schengen_Visa_Form__IS__EN%20(Final).pdf" target="_blank" rel="noopener">冰岛版申根申请表 PDF</a>。这个 PDF <strong>可以直接在电脑上打字填</strong>（用浏览器或 Adobe 打开），填完打印，手签。一共 3 页 32 项。</p>
+  <div class="legend"><span><span class="a">蓝色等宽字</span> 三个人一样</span><span><span class="b">棕色字</span> 填你自己的</span></div>
+  <div class="tbl"><table>
+    <thead><tr><th>编号</th><th>填什么</th></tr></thead>
+    <tbody>
+      <tr class="grp"><td colspan="2">第 1 页</td></tr>
+      <tr><td class="f">1 Surname</td><td class="you">护照上的姓（和网上表一样）</td></tr>
+      <tr><td class="f">2 Surname at birth</td><td>没改过就空着</td></tr>
+      <tr><td class="f">3 First name(s)</td><td class="you">护照上的名</td></tr>
+      <tr><td class="f">4 Date of birth</td><td class="you">日-月-年，比如 15-06-2004</td></tr>
+      <tr><td class="f">5 Place of birth</td><td class="you">护照上的出生地</td></tr>
+      <tr><td class="f">6 Country of birth</td><td class="fix">CHINA</td></tr>
+      <tr><td class="f">7 Current nationality</td><td class="fix">CHINESE</td></tr>
+      <tr><td class="f">8 Sex</td><td class="you">Male / Female</td></tr>
+      <tr><td class="f">9 Civil status</td><td class="fix">Single</td></tr>
+      <tr><td class="f">10 Parental authority</td><td>空着（成年人不填）</td></tr>
+      <tr><td class="f">11 National identity number</td><td class="you">身份证号（可填）</td></tr>
+      <tr><td class="f">12 Type of travel document</td><td class="fix">Ordinary passport</td></tr>
+      <tr><td class="f">13–16 护照号、签发日、有效期、签发国</td><td class="you">照护照填，16 填 CHINA</td></tr>
+      <tr class="grp"><td colspan="2">第 2 页</td></tr>
+      <tr><td class="f">17–18 欧盟家属</td><td>空着</td></tr>
+      <tr><td class="f">19 Home address, e-mail, phone</td><td class="you">英国住址、邮箱、英国手机号</td></tr>
+      <tr><td class="f">20 Residence in other country</td><td class="you">勾 <strong>Yes</strong>，Residence permit 写 UK Student visa，No. 写 BRP 卡号或 eVisa 上的号码，Valid until 写签证到期日</td></tr>
+      <tr><td class="f">21 Current occupation</td><td class="fix">Student</td></tr>
+      <tr><td class="f">22 Employer / educational establishment</td><td class="fix">University of Southampton, University Road, Southampton SO17 1BJ, +44 23 8059 5000</td></tr>
+      <tr><td class="f">23 Purpose of journey</td><td class="fix">Tourism</td></tr>
+      <tr><td class="f">24 Additional information</td><td class="fix">Sightseeing in Iceland (Reykjavik, Golden Circle, South Coast) with two classmates during university winter break</td></tr>
+      <tr><td class="f">25 Member State of main destination</td><td class="fix">ICELAND</td></tr>
+      <tr><td class="f">26 Member State of first entry</td><td class="fix">ICELAND</td></tr>
+      <tr><td class="f">27 Number of entries</td><td class="fix">Single entry · 13-12-2026 · 17-12-2026</td></tr>
+      <tr><td class="f">28 Fingerprints collected previously</td><td class="you">以前递过申根签、录过指纹就勾 Yes 写日期（知道的话写签证号）；没有就勾 No</td></tr>
+      <tr><td class="f">29 Entry permit for final country</td><td>空着</td></tr>
+      <tr class="grp"><td colspan="2">第 3 页</td></tr>
+      <tr><td class="f">30 Inviting person / hotel</td><td class="you">订好的酒店名、地址、邮箱、电话（照住宿确认单抄）。合住的两个人写同一家</td></tr>
+      <tr><td class="f">31 Inviting company</td><td>空着</td></tr>
+      <tr><td class="f">32 Cost covered by</td><td class="you"><strong>自己出钱</strong>：勾 by the applicant himself/herself，Means of support 勾 Cash、Credit card、Pre-paid accommodation、Pre-paid transport。<br><strong>父母出钱</strong>：勾 by a sponsor，写 parents，Means of support 勾 All expenses covered during the stay</td></tr>
+      <tr><td class="f">Place and date / Signature</td><td class="you">Southampton，填表日期，手签（和护照上签名一致）</td></tr>
+    </tbody>
+  </table></div>
+  <ol class="do">
+    <li><input type="checkbox" id="c4a"><label for="c4a"><strong>填完打印，3 页都检查一遍，最后一页签名</strong></label></li>
+  </ol>
+</section>
+
+<section id="s5">
+  <h2><span class="no">5</span>准备材料<span class="when">递签前一周备齐</span></h2>
+  <p>按 VFS 伦敦的官方清单整理。<strong>原件带去给他们看，交的是 A4 复印件</strong>。每个人一个文件夹，按下面顺序放。</p>
+  <ol class="do">
+    <li><input type="checkbox" id="c5a"><label for="c5a"><strong>护照原件 + 所有页的复印件</strong><small>签发不超过 10 年，2027-03-17 以后才过期，至少 2 页空白。有旧护照、上面有申根签的也带上。</small></label></li>
+    <li><input type="checkbox" id="c5b"><label for="c5b"><strong>纸质申根申请表</strong>（第 4 步，签好字）</label></li>
+    <li><input type="checkbox" id="c5c"><label for="c5c"><strong>网上申请的确认邮件 + 签好字的网上申请表打印件</strong>（第 3 步）</label></li>
+    <li><input type="checkbox" id="c5d"><label for="c5d"><strong>证件照 1 张</strong><small>白底彩色，35×45mm，6 个月内拍的，不笑、不戴眼镜帽子。Boots 或照相馆都能拍，VFS 里也有照相机但要另外收钱。</small></label></li>
+    <li><input type="checkbox" id="c5e"><label for="c5e"><strong>旅行医疗保险单</strong><small>写明对所有申根国家有效、医疗保额 ≥ €30,000、包含急救和遣返回国，保障日期要覆盖 12/13–12/17。买的时候搜 “Schengen travel insurance”，保单上要印出这几条。</small></label></li>
+    <li><input type="checkbox" id="c5f"><label for="c5f"><strong>往返机票预订单</strong><small>要有订座号（PNR）和你的名字。三个人一个订单，打印三份。</small></label></li>
+    <li><input type="checkbox" id="c5g"><label for="c5g"><strong>住宿预订单</strong><small>每一晚（12/13–12/17）都要有，上面要有你的名字。合住的订房时把两个人名字都填进去，不行就让酒店发一封写了两人名字的确认邮件。选免费取消的。</small></label></li>
+    <li><input type="checkbox" id="c5h"><label for="c5h"><strong>近 3 个月的英国银行流水</strong><small>官方要求原件、银行盖章签字，显示你的名字。最低标准是住酒店每天 8,000 ISK，5 天就是 40,000 ISK（约 £250）；余额越能覆盖整趟旅行越稳。<br>Monzo 这类网上银行盖不了章，一般交 App 导出的官方 PDF 对账单；如果你还有带实体网点的英国银行卡，交那家的更稳。<br><strong>父母出钱</strong>的话再加：父母的银行流水、父母的资助声明信、父母护照或身份证复印件、证明亲子关系的出生证明（中文的要翻译成英文）。</small></label></li>
+    <li><input type="checkbox" id="c5i"><label for="c5i"><strong>学校在读证明</strong><small>要写明：开具日期、你的名字、读的专业、<strong>每周课时</strong>和<strong>出勤记录</strong>，学校签字。去 Student Hub 申请，<strong>备注是申根签证用、需要写明每周课时和出勤</strong>，标准版在读证明可能没有这两项。开证明要几个工作日，现在就申请。</small></label></li>
+    <li><input type="checkbox" id="c5j"><label for="c5j"><strong>英国居留证明（share code）</strong><small>在 <a href="https://www.gov.uk/view-prove-immigration-status" target="_blank" rel="noopener">gov.uk/view-prove-immigration-status</a> 登录，生成 share code（用途选 something else / 其他），把显示身份和有效期的页面打印出来。有 BRP 卡的再复印一份。</small></label></li>
+    <li><input type="checkbox" id="c5k"><label for="c5k"><strong>行程单</strong>（可选）<small>打印“行程”里的每日行程。</small></label></li>
+    <li><input type="checkbox" id="c5l"><label for="c5l"><strong>VFS 预约信打印件</strong>（第 2 步）</label></li>
+  </ol>
+</section>
+
+<section id="s6">
+  <h2><span class="no">6</span>递签当天<span class="when">10 月下旬 · 约半天</span></h2>
+  <div class="tbl"><table>
+    <thead><tr><th>时间</th><th>做什么</th></tr></thead>
+    <tbody>
+      <tr><td class="f">早上 8–9 点</td><td>Harbour Parade 坐 National Express 032 去伦敦 Victoria Coach Station，约 2 小时 35 分钟，提前订最低 £6.40 一程</td></tr>
+      <tr><td class="f">到伦敦后</td><td>Victoria 坐地铁 Circle 线到 Liverpool Street 或 Moorgate，再走几分钟到 <strong>66 Wilson Street, London EC2A 2BT</strong>（地址以预约信为准，出发前用地图查好）</td></tr>
+      <tr><td class="f">提前 15 分钟</td><td>到门口，出示预约信和护照，过安检。三个人一起进</td></tr>
+      <tr><td class="f">窗口</td><td>交材料、核对原件、录 10 个手指指纹、拍照，每人 15–20 分钟</td></tr>
+      <tr><td class="f">交钱</td><td>每人签证费 €90 + 服务费 €40（按英镑收，约 £113），<strong>只收银行卡或现金</strong>，不管结果都不退</td></tr>
+      <tr><td class="f">结束</td><td>拿好收据，上面有查进度用的编号。护照留在那里</td></tr>
+    </tbody>
+  </table></div>
+  <ol class="do">
+    <li><input type="checkbox" id="c6a"><label for="c6a"><strong>出门前检查</strong>：护照、文件夹、预约信、银行卡、手机充满电</label></li>
+    <li><input type="checkbox" id="c6b"><label for="c6b"><strong>递交完成，拿到收据</strong></label></li>
+  </ol>
+  <p class="small muted">柜台问话一般就是去哪、去几天、和谁去、谁出钱，照实说：旅游，5 天，和两个同学，住雷克雅未克跟团。</p>
+</section>
+
+<section id="s7">
+  <h2><span class="no">7</span>等结果、拿护照<span class="when">递交后约 15 天</span></h2>
+  <ol class="do">
+    <li><input type="checkbox" id="c7a"><label for="c7a"><strong>留意邮件</strong><small>大使馆可能发邮件要补材料或打电话问情况。<strong>要补材料的话 5 天内</strong>发到 <code>visa@utn.is</code>，邮件标题写：姓名、护照号、递签城市（London）。</small></label></li>
+    <li><input type="checkbox" id="c7b"><label for="c7b"><strong>在 VFS 网站查进度</strong>，收到“可以取护照”的通知</label></li>
+    <li><input type="checkbox" id="c7c"><label for="c7c"><strong>回伦敦 VFS 取护照</strong>（或按 VFS 提供的方式寄回）<small>拿到马上检查签证贴纸：名字拼写、护照号、有效期是否覆盖 12/13–12/17、入境次数。错了当场找他们改。</small></label></li>
+    <li><input type="checkbox" id="c7d"><label for="c7d"><strong>拿到签证后再订各个团</strong>（黄金圈、冰洞、蓝湖）</label></li>
+  </ol>
+  <div class="callout"><strong>时间底线：</strong>11 月 15 日还没递上，12/13 出发就很悬了。官方说至少 15 天，旺季可能更久。</div>
+</section>
+
+<section id="links">
+  <h2>网址汇总</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>干什么</th><th>网址</th></tr></thead>
+    <tbody>
+      <tr><td class="f">注册 VFS</td><td><a href="https://visa.vfsglobal.com/gbr/en/isl/register" target="_blank" rel="noopener">visa.vfsglobal.com/gbr/en/isl/register</a></td></tr>
+      <tr><td class="f">登录 VFS、预约</td><td><a href="https://visa.vfsglobal.com/gbr/en/isl/login" target="_blank" rel="noopener">visa.vfsglobal.com/gbr/en/isl/login</a></td></tr>
+      <tr><td class="f">VFS 冰岛英国说明页</td><td><a href="https://visa.vfsglobal.com/one-pager/iceland/uk/english/" target="_blank" rel="noopener">visa.vfsglobal.com/one-pager/iceland/uk/english</a></td></tr>
+      <tr><td class="f">VFS 材料清单 PDF</td><td><a href="https://visa.vfsglobal.com/one-pager/iceland/uk/english/pdf/Checklist-LON-23-5-2025.pdf" target="_blank" rel="noopener">Checklist-LON-23-5-2025.pdf</a></td></tr>
+      <tr><td class="f">冰岛网上申请表</td><td><a href="https://visa.government.is/" target="_blank" rel="noopener">visa.government.is</a></td></tr>
+      <tr><td class="f">纸质申根表 PDF</td><td><a href="https://www.government.is/library/09-Embassies/Schengen_Visa_Form__IS__EN%20(Final).pdf" target="_blank" rel="noopener">Schengen_Visa_Form_IS_EN.pdf</a></td></tr>
+      <tr><td class="f">英国居留 share code</td><td><a href="https://www.gov.uk/view-prove-immigration-status" target="_blank" rel="noopener">gov.uk/view-prove-immigration-status</a></td></tr>
+      <tr><td class="f">冰岛签证总说明</td><td><a href="https://www.government.is/topics/foreign-affairs/visa-to-iceland/" target="_blank" rel="noopener">government.is/…/visa-to-iceland</a></td></tr>
+      <tr><td class="f">去伦敦的大巴</td><td><a href="https://www.nationalexpress.com/en/destinations/london/southampton-to-london" target="_blank" rel="noopener">nationalexpress.com</a></td></tr>
+      <tr><td class="f">有问题问大使馆</td><td><code>visa@utn.is</code>（冰岛外交部申根签证处）</td></tr>
+    </tbody>
+  </table></div>
+  <p class="sources">还没核实、以实际为准的：VFS 登录后各个按钮的叫法；伦敦中心地址来自第三方网站，以预约信为准；Monzo 的 PDF 对账单会不会被要求补盖章。</p>
+</section>
+
+<footer>2026 年 10 月 4 日根据冰岛政府签证网站、VFS Global 英国冰岛页面和官方材料清单整理。规定可能变，递签前一周再看一眼 VFS 页面。</footer>
+
+</div>
+</div></main>
+<script>
+(function () {
+  // 两个标签：根据网址里的 #锚点 决定显示哪一个
+  var tabs = { trip: document.getElementById('tab-trip'), visa: document.getElementById('tab-visa') };
+  var navs = document.querySelectorAll('#nav a');
+  function tabOf(id) {
+    if (id === 'visa-guide') return 'visa';
+    var el = id && document.getElementById(id);
+    if (el && tabs.visa.contains(el)) return 'visa';
+    return 'trip';
+  }
+  function show(scroll) {
+    var id = decodeURIComponent((location.hash || '').slice(1));
+    var t = tabOf(id);
+    Object.keys(tabs).forEach(function (k) { tabs[k].hidden = k !== t; });
+    navs.forEach(function (a) { a.setAttribute('aria-current', a.dataset.tab === t ? 'page' : 'false'); });
+    document.title = (t === 'visa' ? '签证攻略 · ' : '') + '冰岛三人行';
+    var el = id && document.getElementById(id);
+    if (scroll) {
+      if (el && el.tagName !== 'DIV') el.scrollIntoView();
+      else window.scrollTo(0, 0);
+    }
+  }
+  navs.forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      try { history.replaceState(null, '', a.getAttribute('href')); } catch (err) { location.hash = a.getAttribute('href'); }
+      show(false); window.scrollTo(0, 0);
+    });
+  });
+  window.addEventListener('hashchange', function () { show(true); });
+  show(true);
+
+  // 勾选框：行程里的清单和签证里的步骤，各存各的
+  function keep(sel, key, after) {
+    var saved = {};
+    try { saved = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (e) { saved = {}; }
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(sel));
+    boxes.forEach(function (b) {
+      if (saved[b.id]) b.checked = true;
+      b.addEventListener('change', function () {
+        saved[b.id] = b.checked;
+        try { localStorage.setItem(key, JSON.stringify(saved)); } catch (e) {}
+        if (after) after(boxes);
+      });
+    });
+    if (after) after(boxes);
+  }
+  keep('#tab-trip .checks input[type=checkbox]', 'iceland3-checks-v1');
+  var txt = document.getElementById('progtext'), bar = document.getElementById('progbar');
+  keep('#tab-visa .do input[type=checkbox]', 'iceland-visa-steps-v1', function (boxes) {
+    var n = boxes.filter(function (b) { return b.checked; }).length;
+    if (txt) txt.textContent = '已完成 ' + n + ' / ' + boxes.length;
+    if (bar) bar.style.width = (boxes.length ? n / boxes.length * 100 : 0) + '%';
+  });
+})();
+</script>
+</body>
+</html>
