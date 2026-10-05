@@ -3,7 +3,7 @@ import { store, saveDoc, listBackups, restoreBackup, exportAll, importDocs } fro
 import { $, $$, esc, f2, money, round2, uid, today, dayLabel, parse, iso, toast, modal, mondayOf } from "./util.js";
 import { actions, ui } from "./ui.js";
 import { addInv, setInv } from "./shop.js";
-import { generate } from "./menu.js";
+import { generate, week, entryFor } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
@@ -457,6 +457,12 @@ async function applyInboxOnce() {
       if (!o) continue;
       const x = addEntry({ date: b.payDate || today(), amount: +o.a || 0, cat: "__one", note: o.n });
       o.paid = true; o.xid = x.id; paid.push(o.n);
+    }
+    // set：直接把某天某一格换成指定的菜 [{d, k, r, lock}]
+    for (const x of b.set || []) {
+      const r = store.byId[x.r]; if (!r) continue;
+      week(mondayOf(x.d), true).days[(parse(x.d).getDay() + 6) % 7][x.k] = entryFor(r, x.k, x.lock ? { lock: true } : {});
+      saveDoc("menu"); regen = true;
     }
     // regen：库存更新后，从这天起没锁的格子按家里有的东西重排
     if (b.regen) { generate(mondayOf(b.regen), b.regen); regen = true; }
