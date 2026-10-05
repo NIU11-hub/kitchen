@@ -1,6 +1,6 @@
 // 菜单：营养计算、按周存、随机生成、菜单页
 import { store, saveDoc } from "./store.js";
-import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, RICE, BREAD, BF, SPECIAL, shopName } from "./data.js";
+import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, RICE, BREAD, BF, SPECIAL, shopName, ingSub } from "./data.js";
 import { $, esc, r0, f2, money, today, addDays, mondayOf, dow, fmtMD, toast, modal } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
 import { addEntry, removeEntry } from "./ledger.js";
@@ -81,6 +81,13 @@ function pruneWeeks() {
 /* ---------- 随机生成 ---------- */
 const hasRice = r => (r.ing || []).some(i => /米饭/.test(i.n));
 const MAIN = r => !["配菜", "加餐", "甜品", "早餐"].includes(r.cat) && r.slot !== "早餐";
+// 一道菜的主肉（用量最多的那样肉），同一天午饭晚饭不吃同一种肉
+export function mainMeat(r) {
+  let best = null, g = 0;
+  for (const i of r?.ing || []) { const sn = shopName(i.n); if (!sn || /蛋/.test(sn.n) || ingSub(sn.n) !== "meat") continue; if ((i.g || 0) > g) { g = i.g || 0; best = sn.n; } }
+  return best;
+}
+const sameMeat = (a, b) => { const x = mainMeat(a); return !!x && x === mainMeat(b); };
 const quick = r => (r.diff === "简单" && (+r.mins || 0) <= 30);
 // 轮换：越久没吃的越优先，从来没排过的排最前。
 // 在最该轮到的前三分之一里随机挑一道，所以每周组合不一样，但池子里每道菜迟早都会轮到。
@@ -227,15 +234,18 @@ export function generate(key, from = today()) {
   for (let di = 0; di < 7; di++) {
     if (!free(di, "d")) continue;
     let pool = train.includes(di) ? trainDinner : di === 2 ? midDinner : di >= 5 ? (bigDone ? weekend : weekendBig) : midDinner;
-    // 同一天午晚不重复
-    const lunch = w.days[di].l?.r;
-    let r = pickFrom(pool.filter(x => x.id !== lunch), used, lastWeek);
+    // 同一天午晚不重复，也不吃同一种肉
+    const lunch = w.days[di].l?.r, lr = store.byId[lunch];
+    let r = pickFrom(pool.filter(x => x.id !== lunch && !sameMeat(x, lr)), used, lastWeek) || pickFrom(pool.filter(x => x.id !== lunch), used, lastWeek);
     if (!r) r = pickFrom(pool, used, lastWeek, 9);
     if (di >= 5 && r && r.diff !== "简单") bigDone = true;
     put(di, "d", r);
   }
   // 周末午餐：简单的面食或家常菜
-  for (const di of [5, 6]) if (free(di, "l")) put(di, "l", pickFrom(all.filter(r => MAIN(r) && r.diff !== "费事" && r.id !== w.days[di].d?.r), used, lastWeek));
+  for (const di of [5, 6]) if (free(di, "l")) {
+    const dn = store.byId[w.days[di].d?.r], base = all.filter(r => MAIN(r) && r.diff !== "费事" && r.id !== dn?.id);
+    put(di, "l", pickFrom(base.filter(r => !sameMeat(r, dn)), used, lastWeek) || pickFrom(base, used, lastWeek));
+  }
   // 全天热量不够时，给午饭晚饭多配米饭补上（每顿最多 450g）
   for (let di = 0; di < 7; di++) {
     if (past(di)) continue;
@@ -342,6 +352,7 @@ export function renderMenu(el) {
     <li>训练日（周一、二、四、五）晚饭只抽 30 分钟以内或提前备好的。</li>
     <li>周三可以抽中等难度的；周六、周日抽费事的，也是做好吃的那两天。</li>
     <li>工作日午饭一次做两顿：周一二同一道、周四五同一道。</li>
+    <li>同一天午饭和晚饭不排同一种肉（比如不会两顿都是鸡腿肉）。</li>
     <li>每道菜轮着来：越久没吃的越先排，同一道菜一周最多 3 次。</li>
     <li>甜品格自动排不会碰，想吃那天自己选一道；材料会进采购清单，按整个方子买。</li>
     <li>米饭按每餐热量目标自动配，面食不配。点 🔒 锁住的格子不会被换。</li>

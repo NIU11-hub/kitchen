@@ -8,7 +8,7 @@
 - `seed-docs.json`：第一次打开时的记账、菜单、采购初始数据
 - `schema.sql`：Supabase 建表和权限
 
-改完推到 main 分支，GitHub Pages 一两分钟后自动更新。
+改完推到 main 分支，GitHub Pages 一两分钟后自动更新。改了 js 或 css 记得把 `index.html` 里的版本号 `v=` 换掉（importmap 和两处引用一起换），不然浏览器可能还在用旧缓存。
 
 ## 粘贴小票
 
