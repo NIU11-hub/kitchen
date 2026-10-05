@@ -441,6 +441,8 @@ async function applyInboxOnce() {
   const snap = snapshot();
   let n = 0, sum = 0, paid = [], skipped = 0, inv = 0;
   for (const b of todo) {
+    // redo：先删掉这几张记过的小票（店|日期|总额），下面按新的分类重记
+    for (const rc of b.redo || []) for (const x of L().E.filter(z => z.meta?.rc === String(rc).toLowerCase())) removeEntry(x.id, true);
     // 同一张小票（同店、同天、同总额）已经记过的就跳过，不管之前是粘贴的还是手记的
     for (const r of normReceipts(b.receipts || [])) { if (r.dup) { skipped++; continue; } for (const x of r.lines) {
       addEntry({ date: r.date, amount: x.amt, cat: x.cat, sub: x.sub, src: r.src, note: [r.shop, x.note].filter(Boolean).join(" · "), meta: { rc: r.rc, ib: b.id } });
