@@ -40,7 +40,9 @@ document.addEventListener("click", e => {
   if (a && actions[a.dataset.act]) { if (a.tagName === "A") e.preventDefault(); actions[a.dataset.act](a, e); }
 });
 document.addEventListener("change", e => { const el = e.target.closest("[data-chg]"); if (el && el.dataset.chg !== "q" && changes[el.dataset.chg]) changes[el.dataset.chg](el, e); });
-document.addEventListener("input", e => { const el = e.target.closest("[data-chg=q]"); if (el) changes.q(el, e); });
+// 中文输入法拼字的时候不刷新页面，选好字（compositionend）再搜，不然拼音会被打断
+document.addEventListener("input", e => { const el = e.target.closest("[data-chg=q]"); if (el && !e.isComposing) changes.q(el, e); });
+document.addEventListener("compositionend", e => { const el = e.target.closest?.("[data-chg=q]"); if (el) changes.q(el, e); });
 document.addEventListener("submit", e => {
   const f = e.target;
   if (f.dataset.form === "add") { e.preventDefault(); submitAdd(f); }
