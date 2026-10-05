@@ -12,7 +12,7 @@ const S = () => { const s = store.docs.shop; s.bought = s.bought || {}; s.pantry
    inv[名字] = { g: 买回来时有多少克, from: 从哪天的饭开始算消耗 }
    还剩多少 = g − 菜单上 from 那天起到某天之前吃掉的量。菜单换了，剩多少跟着变。 */
 // 同一样东西在不同菜里叫法不一样，库存按一个名字算
-const ALIAS = { "切达芝士": "芝士片", "希腊酸奶": "0脂希腊酸奶", "青豆": "冷冻豌豆", "青豆/玉米粒": "冷冻豌豆", "牛肉末": "牛肉末（5% 脂肪）", "瘦牛肉末": "牛肉末（5% 脂肪）" };
+const ALIAS = { "切达芝士": "芝士片", "希腊酸奶": "0脂希腊酸奶", "青豆": "冷冻豌豆", "青豆/玉米粒": "冷冻豌豆", "牛肉末": "牛肉末（5% 脂肪）", "瘦牛肉末": "牛肉末（5% 脂肪）", "法棍": "恰巴塔" };
 export const invName = n => ALIAS[n] || n;
 // 菜单上 [from, to) 这几天一共要吃掉多少（按采购用的名字）
 function usage(from, to) {
@@ -24,6 +24,7 @@ function usage(from, to) {
       const r = store.byId[e.r], add = (i, f) => { const sn = shopName(i.n); if (!sn) return; const k = invName(sn.n); out[k] = (out[k] || 0) + (i.g || 0) * f * sn.f; };
       if (r) for (const i of r.ing || []) add(i, sl.opt ? 1 : 1 / (r.base || 1));
       if (e.rice) add({ n: "熟米饭", g: e.rice }, 1);
+      if (e.bread) add({ n: "恰巴塔", g: e.bread }, 1);
     }
   });
   return out;
@@ -38,6 +39,8 @@ export function addInv(list, from) {
   for (const [n0, g] of list) { const n = invName(n0); const left = inv[n] ? invLeft(n, from) : 0; inv[n] = { g: Math.round(left + (+g || 0)), from }; }
   save();
 }
+// 按冰箱照片重新盘点：旧的库存清掉，换成这一份
+export function setInv(list, from) { S().inv = {}; addInv(list, from); }
 const save = () => saveDoc("shop");
 
 // 下一趟采购：今天就是采购日就算今天
@@ -92,6 +95,7 @@ export function buildShop(key, k) {
     const r = store.byId[e.r];
     if (r) for (const i of r.ing || []) put(i, s.opt ? 1 : 1 / (r.base || 1), r.name, di);   // 甜品整份做，材料按整个方子买
     if (e.rice) put({ n: "熟米饭", g: e.rice }, 1, "配米饭", di);
+    if (e.bread) put({ n: "恰巴塔", g: e.bread }, 1, "早餐配面包", di);
   } });
   const pantry = S().pantry;
   // 家里现有的先扣掉：算到这一趟第一天之前还剩多少

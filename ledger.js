@@ -1,8 +1,9 @@
 // 记账：数据操作、记账页、+ 记一笔小窗、储蓄罐
 import { store, saveDoc, listBackups, restoreBackup, exportAll, importDocs } from "./store.js";
-import { $, $$, esc, f2, money, round2, uid, today, dayLabel, parse, iso, toast, modal } from "./util.js";
+import { $, $$, esc, f2, money, round2, uid, today, dayLabel, parse, iso, toast, modal, mondayOf } from "./util.js";
 import { actions, ui } from "./ui.js";
-import { addInv } from "./shop.js";
+import { addInv, setInv } from "./shop.js";
+import { generate } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
@@ -439,7 +440,7 @@ async function applyInboxOnce() {
   const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id));
   if (!todo.length) return;
   const snap = snapshot();
-  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0;
+  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0, regen = false;
   for (const b of todo) {
     // redo：先删掉这几张记过的小票（店|日期|总额），下面按新的分类重记
     for (const rc of b.redo || []) for (const x of L().E.filter(z => z.meta?.rc === String(rc).toLowerCase())) removeEntry(x.id, true);
@@ -449,7 +450,7 @@ async function applyInboxOnce() {
       n++; sum += x.amt;
     } }
     // 买回来的东西记进家里的库存；囤货类标「家里还有」
-    if (b.inv?.length) { addInv(b.inv, b.invFrom || today()); inv += b.inv.length; }
+    if (b.inv?.length) { (b.invSet ? setInv : addInv)(b.inv, b.invFrom || today()); inv += b.inv.length; }
     if (b.have?.length) { const P = store.docs.shop.pantry = store.docs.shop.pantry || {}; for (const n of b.have) P[n] = 1; saveDoc("shop"); }
     for (const nm of b.pay || []) {
       const o = S.ones.find(z => !z.paid && z.n.toLowerCase().includes(String(nm).toLowerCase()));
@@ -457,10 +458,12 @@ async function applyInboxOnce() {
       const x = addEntry({ date: b.payDate || today(), amount: +o.a || 0, cat: "__one", note: o.n });
       o.paid = true; o.xid = x.id; paid.push(o.n);
     }
+    // regen：库存更新后，从这天起没锁的格子按家里有的东西重排
+    if (b.regen) { generate(mondayOf(b.regen), b.regen); regen = true; }
     S.inbox.push(b.id);
   }
   save(); ui.rerender();
-  if (!n && !paid.length) { if (inv) toast(`家里的库存更新了 ${inv} 样`); return; }
+  if (!n && !paid.length) { if (inv || regen) toast(`家里的库存更新了 ${inv} 样${regen ? "，菜单按库存重排了" : ""}`); return; }
   toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${skipped ? `（${skipped} 张已经记过，跳过了）` : ""}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}`, () => restoreSnap(snap));
 }
 

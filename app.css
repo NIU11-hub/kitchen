@@ -483,3 +483,4 @@ button.t:hover .nm{color:var(--acc)}
 .amr{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:3px 0}
 .amr small{display:block;color:var(--ink3);font-size:11.5px}
 .amr.unplan span:first-child{color:var(--warn)}
+.todo{margin:4px 0 0;padding-left:18px}.todo li{margin:6px 0}

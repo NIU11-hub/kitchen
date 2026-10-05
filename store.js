@@ -87,7 +87,8 @@ async function initCloud(seedRecipes, seedDocs) {
   const up = [];
   for (const s of seedRecipes) {
     const c = cloud.get(s.id);
-    if (!c || (s.v || 0) > (c.v || 0)) { cloud.set(s.id, s); up.push({ id: s.id, data: s }); }
+    // 子俊在网站里「拿掉」过的菜，更新版本时也保持拿掉
+    if (!c || (s.v || 0) > (c.v || 0)) { const x = c?.hidden ? { ...s, hidden: true } : s; cloud.set(s.id, x); up.push({ id: s.id, data: x }); }
   }
   for (let i = 0; i < up.length; i += 50) await sb.from("recipes").upsert(up.slice(i, i + 50));
   store.recipes = [...cloud.values()];

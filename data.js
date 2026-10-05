@@ -16,6 +16,18 @@ export const CATS = ["早餐", "平日备餐", "家常菜", "面食", "配菜", 
 export const PROS = ["鸡", "牛", "猪", "鱼虾", "蛋"];
 export const DIFFS = ["简单", "中等", "费事"];
 export const RICE = { n: "熟米饭", kcal: 130, p: 2.7, c: 28.2, f: 0.3 };
+// 早餐热量不够时配面包，不配米饭（Aldi Ciabatta Rolls 每 100g 的数）
+export const BREAD = { n: "恰巴塔", kcal: 267, p: 10.4, c: 49.4, f: 2.4 };
+
+// 早餐怎么排（2026-10-05 子俊定的）：
+// 工作日基本吃英式早餐，焗豆一罐吃两顿所以排相邻两天，其余是面包版；
+// 牛油果鸡蛋沙拉一次做两份，排在相邻两天；周末从三明治、北非蛋里挑。
+export const BF = {
+  bread: "en-breakfast-bread",
+  beans: "en-breakfast-beans",
+  pair: ["dy-avocado-egg-salad"],
+  weekend: ["dy-chicken-ciabatta", "dy-beef-egg-ciabatta", "dy-chipotle-sandwich", "shakshuka"],
+};
 
 // 菜单里的特殊格子。聚餐的钱吃完再填；Meal Deal 固定 £4
 export const SPECIAL = {
@@ -62,7 +74,7 @@ export function ingSub(n) {
   if (/巧克|黑巧|奥利奥|坚果|核桃|花生米|蔓越莓/.test(n)) return "snack";
   if (/奶|酸奶|芝士|奶酪|马苏里拉|帕玛森|切达|格吕耶尔|黄油|菲达|酒酿/.test(n)) return "dairy";
   if (/鸡(?!汤)|鸭|牛|猪|五花|排骨|肋排|梅花|培根|腊肉|火腿|烤肠|叉烧|虾|三文鱼|鳕|白鱼|鱿鱼|鱼|蛋|鹌鹑/.test(n)) return "meat";
-  if (/米$|大米|米饭|燕麦|面$|面条|面粉|乌冬|意面|河粉|粉丝|面包|欧包|恰巴塔|法棍|卷饼|塔饼|饺子皮|藜麦|土豆|红薯|紫薯|玉米粉|小米|黑米|红豆|拉面|方便面|面饼/.test(n)) return "staple";
+  if (/焗豆|米$|大米|米饭|燕麦|面$|面条|面粉|乌冬|意面|河粉|粉丝|面包|欧包|恰巴塔|法棍|卷饼|塔饼|饺子皮|藜麦|土豆|红薯|紫薯|玉米粉|小米|黑米|红豆|拉面|方便面|面饼/.test(n)) return "staple";
   return "veg";
 }
 
@@ -74,6 +86,8 @@ const NORM = [
   [/^(三色)?藜麦(\(生\))?$/, "藜麦（生）"],
   [/鸡胸/, "鸡胸肉"],
   [/^(去皮|去骨|去皮去骨)?鸡腿(肉|排|块)?$|^去骨鸡腿(肉|排)$/, "去皮鸡腿肉"],
+  [/^(炖)?牛肉块$|^牛肉丁$/, "炖牛肉块（diced beef）"],
+  [/^整块炖牛肉/, "整块炖牛肉（braising steak）"],
   [/^牛肉末|^牛肉馅/, "牛肉末（5% 脂肪）"],
   [/^牛排$|西冷/, "牛排（西冷）"],
   [/^瘦牛肉|^牛肉丝$|^牛肉薄片$|^生牛里脊片$|^牛里脊$/, "瘦牛肉"],
@@ -170,6 +184,10 @@ export const PACKS = {
   "黑巧克力": [{ l: "Lindt Excellence 70% Dark Chocolate 100g", size: 100, price: 3.50 }],
   "蛋白粉": [{ l: "Applied Nutrition Critical Whey 825g", size: 825, price: 25.00 }],
   "食用油": [{ l: "Tesco Pure Vegetable Oil 1L", size: 920, price: 1.45 }],
+  // 下面三样是 2026-10-05 查的 Aldi 官网价
+  "培根": [{ l: "Aldi Everyday Essentials Smoked Back Bacon 288g", size: 288, price: 1.25 }],
+  "焗豆": [{ l: "Aldi Everyday Essentials Baked Beans 410g", size: 410, price: 0.27 }],
+  "恰巴塔": [{ l: "Aldi Inspired Cuisine Ciabatta Rolls 4 个（每个按 80g 估）", size: 320, price: 1.29 }],
 };
 // 没查到具体商品时按同类大致每公斤价格估算（不是查来的，只用来拆账和估预算）
 export const EST_PER_KG = { meat: 9, veg: 2.5, staple: 2, dairy: 5, snack: 8, pantry: 0, supp: 30 };

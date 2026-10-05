@@ -1,6 +1,6 @@
 // 食谱：列表、详情、做饭模式、自己加和改
 import { store, saveRecipe, hideRecipe } from "./store.js";
-import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, PROS, DIFFS } from "./data.js";
+import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, PROS, DIFFS, BREAD } from "./data.js";
 import { $, $$, esc, r0, r1, uid, toast, addDays, modal } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
 import { perServing, week, thisWeek, M } from "./menu.js";
@@ -57,6 +57,7 @@ function compare(s, slot) {
   const t = SLOT_BY_NAME[slot].t, dk = s.kcal - t.kcal, dp = s.p - t.p;
   if (Math.abs(dk) <= 80) items.push(`<span class="ok">热量合适</span>，计划里${slot}是 ${t.kcal} kcal。`);
   else if (dk > 0) items.push(`<span class="up">热量多了 ${r0(dk)} kcal</span>，当天其他餐的米饭少吃 ${Math.round(dk / 1.3 / 10) * 10}g 就能抵掉。`);
+  else if (slot === "早餐") items.push(`热量少了 ${r0(-dk)} kcal，配 ${Math.max(40, Math.round(-dk / (BREAD.kcal / 100) / 40) * 40)}g 恰巴塔或法棍（一个小恰巴塔约 80g）。`);
   else items.push(`热量少了 ${r0(-dk)} kcal，这顿多配 ${Math.round(-dk / 1.3 / 10) * 10}g 米饭。`);
   if (dp < -12) items.push(`<span class="up">蛋白少了 ${r0(-dp)}g</span>，多加 1 勺蛋白粉（约 24g）。`);
   else if (dp < -4) items.push(`<span class="up">蛋白少了 ${r0(-dp)}g</span>，加 1 个鸡蛋（约 6g）基本补上。`);
@@ -95,6 +96,7 @@ function renderDetail(el, r) {
       <div class="cmp-head">当作 <select data-chg="slot" aria-label="当作哪一餐">${["早餐", "午餐", "练后", "晚餐", "睡前", "自由餐"].map(o => `<option ${o === slot ? "selected" : ""}>${o}</option>`).join("")}</select> 吃，和计划比：</div>
       <ul>${compare(s, slot).map(x => `<li>${x}</li>`).join("")}</ul>
     </div>
+    ${r.prep ? `<div class="opt"><b>要提前准备：</b>${esc(r.prep.when)}${esc(r.prep.t)}${r.prep.mins ? `，约 ${r.prep.mins} 分钟` : ""}。排进菜单后，前一天「今天」页会提醒。</div>` : ""}
     ${r.opt ? `<div class="opt"><b>健身版改法：</b>${esc(r.opt)}</div>` : ""}
     <div class="rcols">
       <div class="card"><h3>食材 · ${n} 份</h3>

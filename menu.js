@@ -1,10 +1,10 @@
 // 菜单：营养计算、按周存、随机生成、菜单页
 import { store, saveDoc } from "./store.js";
-import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, RICE, SPECIAL } from "./data.js";
+import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, RICE, BREAD, BF, SPECIAL, shopName } from "./data.js";
 import { $, esc, r0, f2, money, today, addDays, mondayOf, dow, fmtMD, toast, modal } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
 import { addEntry, removeEntry } from "./ledger.js";
-import { boughtFor } from "./shop.js";
+import { boughtFor, invLeft, invName, keepOf } from "./shop.js";
 
 export const M = () => store.docs.menu;
 const save = () => saveDoc("menu");
@@ -17,11 +17,13 @@ export function perServing(r) {
   return t;
 }
 function riceN(g) { const k = g / 100; return { kcal: RICE.kcal * k, p: RICE.p * k, c: RICE.c * k, f: RICE.f * k }; }
+function breadN(g) { const k = g / 100; return { kcal: BREAD.kcal * k, p: BREAD.p * k, c: BREAD.c * k, f: BREAD.f * k }; }
 export function entryN(e) {
   if (!e) return ZERO;
   if (e.custom) { const c = e.custom; return { kcal: +c.kcal || 0, p: +c.p || 0, c: +c.c || 0, f: +c.f || 0 }; }
   let n = store.byId[e.r] ? perServing(store.byId[e.r]) : ZERO;
   if (e.rice) n = add(n, riceN(e.rice));
+  if (e.bread) n = add(n, breadN(e.bread));
   return n;
 }
 export const dayN = d => SLOTS.reduce((a, s) => add(a, entryN(d?.[s.k])), ZERO);
@@ -83,12 +85,35 @@ const quick = r => (r.diff === "简单" && (+r.mins || 0) <= 30);
 // 轮换：越久没吃的越优先，从来没排过的排最前。
 // 在最该轮到的前三分之一里随机挑一道，所以每周组合不一样，但池子里每道菜迟早都会轮到。
 let LAST = {};
+// 家里还剩的东西（生成菜单时用）：名字 -> 克。排进一道菜就扣掉这道菜要用的
+let STOCK = null;
+const stockKey = i => { const sn = shopName(i.n); return sn ? { k: invName(sn.n), f: sn.f } : null; };
+function stockInit(from) {
+  STOCK = {};
+  for (const n of Object.keys(store.docs.shop?.inv || {})) { const g = invLeft(n, from); if (g > 0) STOCK[n] = g; }
+}
+// 用到家里现有东西越多越先排；放不久的（肉、菜、奶）算两分
+function stockScore(r) {
+  if (!STOCK) return 0;
+  let sc = 0;
+  for (const i of r.ing || []) {
+    const x = stockKey(i); if (!x || !(STOCK[x.k] >= 30)) continue;
+    const d = keepOf(x.k).days; sc += d && d <= 10 ? 2 : 1;
+  }
+  return sc;
+}
+function stockUse(r) {
+  if (!STOCK || !r) return;
+  for (const i of r.ing || []) { const x = stockKey(i); if (x && STOCK[x.k] > 0) STOCK[x.k] -= (i.g || 0) * x.f / (r.base || 1); }
+}
 function pickFrom(pool, used, lastWeek, limit = 3) {
   const ok = pool.filter(r => (used[r.id] || 0) < limit);
   if (!ok.length) return null;
-  const rank = ok.map(r => ({ r, u: used[r.id] || 0, t: LAST[r.id] || "", x: Math.random() }))
-    .sort((p, q) => p.u - q.u || (p.t < q.t ? -1 : p.t > q.t ? 1 : 0) || p.x - q.x);
-  const top = rank.slice(0, Math.max(2, Math.ceil(rank.length / 3)));
+  const rank = ok.map(r => ({ r, u: used[r.id] || 0, s: stockScore(r), t: LAST[r.id] || "", x: Math.random() }))
+    .sort((p, q) => p.u - q.u || q.s - p.s || (p.t < q.t ? -1 : p.t > q.t ? 1 : 0) || p.x - q.x);
+  // 有能用上家里东西的，就在用得最多的几道里挑；没有就在最该轮到的前三分之一里随机
+  const best = rank[0];
+  const top = best.s > 0 ? rank.filter(z => z.u === best.u && z.s >= best.s - 1).slice(0, 3) : rank.slice(0, Math.max(2, Math.ceil(rank.length / 3)));
   return top[Math.floor(Math.random() * top.length)].r;
 }
 // 每道菜最近一次排在哪天（生成这周时，这周还没过的几天不算）
@@ -101,14 +126,60 @@ function refreshLast(key) {
   });
   LAST = m.last;
 }
+// 早餐热量差得多（少 150 以上）就配恰巴塔补上，40g 一档；包子、卷饼这类面食早餐不配
+const hasBread = r => (r.ing || []).some(i => /卷饼|塔饼|馒头|包子|面粉/.test(i.n));
+export function breadFor(r, slotK) {
+  if (slotK !== "b" || !r || hasBread(r)) return 0;
+  const short = SLOT_BY_NAME["早餐"].t.kcal - perServing(r).kcal;
+  if (short < 150) return 0;
+  return Math.min(160, Math.round(short / (BREAD.kcal / 100) / 40) * 40);
+}
+export function entryFor(r, slotK, extra) {
+  const e = { r: r.id, rice: riceFor(r, slotK), ...extra };
+  const b = breadFor(r, slotK); if (b) e.bread = b;
+  return e;
+}
+const rnd = a => a[Math.floor(Math.random() * a.length)];
+// 排早餐：工作日英式早餐（焗豆版排相邻两天吃完一罐），牛油果沙拉相邻两天；周末三明治、北非蛋轮着来
+// ok(di) 说哪几天可以动；锁住的、外面吃的、不排的日子不动
+function planBreakfast(key, w, ok, used = {}, lastWeek = new Set()) {
+  const R = id => store.byId[id];
+  const free = di => { if (!ok(di) || offOf(key, di)) return false; const c = w.days[di].b; return !(c && (c.lock || c.custom)); };
+  const put = (di, r) => { if (!r) return; w.days[di].b = entryFor(r, "b"); used[r.id] = (used[r.id] || 0) + 1; stockUse(r); };
+  let wd = [0, 1, 2, 3, 4].filter(free);
+  const adj = () => [[0, 1], [1, 2], [2, 3], [3, 4]].filter(p => p.every(d => wd.includes(d)));
+  const pairR = BF.pair.map(R).filter(Boolean);
+  // 牛油果沙拉：同一趟采购里的相邻两天（周一二、周三四）优先，牛油果放不住
+  if (pairR.length) {
+    const same = adj().filter(p => p[0] === 0 || p[0] === 2), any = adj();
+    const p = same.length ? rnd(same) : any.length ? rnd(any) : null;
+    if (p) { const r = rnd(pairR); p.forEach(d => put(d, r)); wd = wd.filter(d => !p.includes(d)); }
+  }
+  const bread = R(BF.bread), beans = R(BF.beans);
+  if (bread || beans) {
+    const bp = beans && adj().length ? rnd(adj()) : [];
+    for (const di of wd) put(di, bp.includes(di) ? beans : bread || beans);
+    wd = [];
+  }
+  // 周末，以及工作日英式早餐被删掉时的后备：按老规则从早餐里挑
+  const wk = BF.weekend.map(R).filter(Boolean);
+  const all = store.recipes.filter(r => r.slot === "早餐" && !/冷冻/.test(r.name) && perServing(r).kcal >= 350);
+  for (const di of [...wd, 5, 6]) {
+    if (!free(di)) continue;
+    const pool = di >= 5 && wk.length ? wk : all.filter(r => (+r.mins || 0) <= 30 || r.batch);
+    put(di, pickFrom(pool, used, lastWeek));
+  }
+}
 function riceFor(r, slotK) {
   const s = SLOTS.find(z => z.k === slotK);
   if (!s.rice || hasRice(r) || r.cat === "面食") return 0;
   const need = (s.t.kcal - perServing(r).kcal) / 1.3;
   return Math.max(0, Math.min(350, Math.round(need / 50) * 50));
 }
-export function generate(key) {
+// from：从哪天开始排（默认今天），之前的日子不动
+export function generate(key, from = today()) {
   refreshLast(key);
+  stockInit(from > addDays(key, 6) ? addDays(key, 7) : from > key ? from : key);
   const w = week(key, true), m = M(), train = trainOf(key);
   // 冰箱只有一小格冷冻，要冻起来的备餐不自动排
   const all = store.recipes.filter(r => !/冷冻/.test(r.name));
@@ -120,16 +191,15 @@ export function generate(key) {
     const cur = w.days[di][k];
     if (cur && (cur.lock || cur.custom)) return false;
     if (!r) { delete w.days[di][k]; return true; }
-    w.days[di][k] = { r: r.id, rice: riceFor(r, k) };
+    w.days[di][k] = entryFor(r, k);
     used[r.id] = (used[r.id] || 0) + 1;
+    stockUse(r);
     return true;
   };
   // 已经过去的日子不动，只排今天和以后
-  const past = di => addDays(key, di) < today();
+  const past = di => addDays(key, di) < from;
   const free = (di, k) => { if (past(di) || offOf(key, di)) return false; const c = w.days[di][k]; return !(c && (c.lock || c.custom)); };
 
-  const bfAll = all.filter(r => r.slot === "早餐" && perServing(r).kcal >= 350);
-  const bfQuick = bfAll.filter(r => (+r.mins || 0) <= 30 || r.batch);
   const batchPool = all.filter(r => MAIN(r) && (r.cat === "平日备餐" || r.batch) && r.diff !== "费事");
   const trainDinner = all.filter(r => MAIN(r) && (quick(r) || r.cat === "平日备餐"));
   const midDinner = all.filter(r => MAIN(r) && r.diff !== "费事" && (+r.mins || 0) <= 60);
@@ -137,10 +207,9 @@ export function generate(key) {
   const weekendBig = weekend.filter(r => r.diff === "费事" || r.diff === "中等");
   const post = store.byId["post-workout"], postAlt = all.filter(r => r.slot === "练后" && r.id !== "post-workout"), beds = all.filter(r => r.slot === "睡前");
   let alt = 0;
+  planBreakfast(key, w, di => !past(di), used, lastWeek);
 
   for (let di = 0; di < 7; di++) {
-    const isTrain = train.includes(di), wkend = di >= 5;
-    if (free(di, "b")) put(di, "b", pickFrom(wkend ? bfAll : bfQuick, used, lastWeek));
     // 练后平时就是蛋白奶，一周偶尔换一两次
     if (free(di, "s") && post) put(di, "s", postAlt.length && alt < 2 && Math.random() < 0.25 ? (alt++, postAlt[Math.floor(Math.random() * postAlt.length)]) : post);
     if (free(di, "n") && beds.length) put(di, "n", pickFrom(beds, used, new Set(), 4) || beds[0]);
@@ -177,8 +246,39 @@ export function generate(key) {
       while (short > 100 && (e.rice || 0) < 450) { e.rice = (e.rice || 0) + 50; short -= 65; }
     }
   }
+  STOCK = null;
   pruneWeeks();
   save();
+}
+
+/* ---------- 今晚要做 ---------- */
+// 某天某一格排的菜（不排的日子、外面吃的不算）
+function entryAt(date, k) {
+  const key = mondayOf(date), di = dow(date);
+  if (offOf(key, di)) return null;
+  const e = week(key)?.days[di]?.[k];
+  return e?.r && !e.custom && store.byId[e.r] ? e : null;
+}
+// 某天要动手做的菜：早餐、晚餐、周末午饭当天做；工作日午饭前一晚做，连着几天同一道的只做一次
+function cookOn(d) {
+  const list = [];
+  for (const k of ["b", "d"]) { const e = entryAt(d, k); if (e) list.push({ r: store.byId[e.r], k, eat: d }); }
+  if (dow(d) >= 5) { const e = entryAt(d, "l"); if (e) list.push({ r: store.byId[e.r], k: "l", eat: d }); }
+  const nx = addDays(d, 1), e = entryAt(nx, "l");
+  if (dow(nx) <= 4 && e && !(dow(d) <= 4 && entryAt(d, "l")?.r === e.r)) {
+    let n = 1; while (n < 3 && dow(addDays(nx, n)) <= 4 && entryAt(addDays(nx, n), "l")?.r === e.r) n++;
+    list.push({ r: store.byId[e.r], k: "l", eat: nx, n, batch: true });
+  }
+  return list;
+}
+// 今晚要做的事：今晚做好的工作日午饭、明天要做的菜里要提前一晚腌/泡的、明早出门前要泡上的
+export function tonightTodo(t = today()) {
+  const tm = addDays(t, 1), seen = new Set(), uniq = x => !seen.has(x.k + x.r.id + x.eat) && seen.add(x.k + x.r.id + x.eat);
+  const cook = cookOn(t).filter(x => x.batch && uniq(x));
+  const next = cookOn(tm);
+  const prep = next.filter(x => x.r.prep?.when === "前一晚" && uniq(x));
+  const morning = next.filter(x => x.r.prep?.when === "当天早上" && uniq(x));
+  return { cook, prep, morning };
 }
 
 /* ---------- 菜单页 ---------- */
@@ -237,6 +337,8 @@ export function renderMenu(el) {
       ${w ? `<button class="btn" data-act="clearwk">清空这周</button>` : ""}
     </div></div>
   <details class="rules"><summary>随机生成的规则</summary><ul>
+    <li>早餐：工作日基本是英式早餐，焗豆版排相邻两天（一罐吃两顿），牛油果鸡蛋沙拉也排相邻两天；周末从恰巴塔三明治、北非蛋里挑。</li>
+    <li>早餐热量差得多就配恰巴塔补，不配米饭。</li>
     <li>训练日（周一、二、四、五）晚饭只抽 30 分钟以内或提前备好的。</li>
     <li>周三可以抽中等难度的；周六、周日抽费事的，也是做好吃的那两天。</li>
     <li>工作日午饭一次做两顿：周一二同一道、周四五同一道。</li>
@@ -263,7 +365,7 @@ export function renderMenu(el) {
     <thead><tr><th></th>${DAYS.map((x, i) => `<th>${x}<small>${fmtMD(addDays(key, i))}</small></th>`).join("")}</tr></thead><tbody>
     ${SLOTS.filter(s => !s.opt || w.days.some(dd => dd?.[s.k])).map(s => `<tr><td class="s">${s.name}</td>${w.days.map(dd => { const e = dd?.[s.k]; const r = e && store.byId[e.r];
       if (e?.custom) return `<td><span class="sp-tag">${esc(SPECIAL[e.custom.kind]?.label || "特殊")}</span></td>`;
-      return `<td>${r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}">${esc(r.name)}</a>${e.rice ? `<div class="hint">+米饭 ${e.rice}g</div>` : ""}` : "–"}</td>`; }).join("")}</tr>`).join("")}
+      return `<td>${r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}">${esc(r.name)}</a>${e.rice ? `<div class="hint">+米饭 ${e.rice}g</div>` : ""}${e.bread ? `<div class="hint">+恰巴塔 ${e.bread}g</div>` : ""}` : "–"}</td>`; }).join("")}</tr>`).join("")}
     <tr class="tot"><td class="s">合计</td>${w.days.map(dd => { const x = dayN(dd); return `<td>${r0(x.kcal)} kcal<div class="hint">P ${r0(x.p)} · C ${r0(x.c)} · F ${r0(x.f)}</div></td>`; }).join("")}</tr>
     </tbody></table></div></section>` : ""}`;
 }
@@ -277,6 +379,7 @@ function mealRow(key, di, s, e) {
       ${cu ? `<span class="sp-name"><span class="sp-tag">${esc(SPECIAL[cu.kind]?.label || "特殊")}</span>${esc(cu.name)}</span>`
         : r ? `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}"><span class="dot"></span>${esc(r.name)}</a>` : `<span class="hint">${s.opt ? "不吃就空着" : "没排"}</span>`}
       ${cu ? specialBox(key, di, s.k, cu) : ""}
+      ${s.k === "b" && r ? `<div class="extra">配恰巴塔 <span class="stepper sm"><button data-act="bread" data-w="${key}" data-d="${di}" data-k="${s.k}" data-v="-40" aria-label="面包减 40 克">−</button><span>${e.bread || 0}g</span><button data-act="bread" data-w="${key}" data-d="${di}" data-k="${s.k}" data-v="40" aria-label="面包加 40 克">+</button></span></div>` : ""}
       ${s.rice && r ? `<div class="extra">配米饭 <span class="stepper sm"><button data-act="rice" data-w="${key}" data-d="${di}" data-k="${s.k}" data-v="-50" aria-label="米饭减 50 克">−</button><span>${e.rice || 0}g</span><button data-act="rice" data-w="${key}" data-d="${di}" data-k="${s.k}" data-v="50" aria-label="米饭加 50 克">+</button></span></div>` : ""}
     </div>
     <div class="num-r"><b>${r0(en.kcal)}</b> kcal · P ${r0(en.p)}</div>
@@ -305,6 +408,7 @@ actions.clearwk = el => {
   save(); ui.rerender();
 };
 actions.rice = el => { const { d, k } = cell(el); const e = d[k]; if (!e) return; e.rice = Math.max(0, Math.min(600, (e.rice || 0) + (+el.dataset.v))); save(); ui.rerender(); };
+actions.bread = el => { const { d, k } = cell(el); const e = d[k]; if (!e) return; e.bread = Math.max(0, Math.min(240, (e.bread || 0) + (+el.dataset.v))); if (!e.bread) delete e.bread; save(); ui.rerender(); };
 actions.lock = el => { const { d, k } = cell(el); const e = d[k]; if (!e) return; e.lock = !e.lock; save(); ui.rerender(); };
 changes.swap = el => {
   const { d, k } = cell(el); const prev = d[k] || {};
@@ -312,7 +416,7 @@ changes.swap = el => {
   const v = el.value;
   if (v === "__clear") delete d[k];
   else if (v.startsWith("__")) { const kind = v.slice(2); d[k] = { custom: { kind, ...SPECIAL[kind].presets[0] }, rice: 0, lock: true }; }
-  else { const r = store.byId[v]; d[k] = { r: v, rice: riceFor(r, k), lock: prev.lock }; }
+  else { const r = store.byId[v]; d[k] = entryFor(r, k, { lock: prev.lock }); }
   save(); ui.rerender();
 };
 changes.preset = el => { const { d, k } = cell(el); const e = d[k]; const p = SPECIAL[e.custom.kind].presets[+el.value]; if (p) { e.custom = { ...e.custom, ...p, edited: false }; save(); ui.rerender(); } };
@@ -342,9 +446,9 @@ function pushLater(key, di, k, carry) {
     d++; if (d > 6) { d = 0; w = addDays(w, 7); }
     const wk = week(w, true), cur = wk.days[d][k];
     if (cur && (cur.custom || cur.lock)) continue;
-    wk.days[d][k] = { r: carry.r, rice: carry.rice || 0 };
+    wk.days[d][k] = { r: carry.r, rice: carry.rice || 0, ...(carry.bread ? { bread: carry.bread } : {}) };
     if (!cur || !cur.r) return;
-    carry = { r: cur.r, rice: cur.rice };
+    carry = { r: cur.r, rice: cur.rice, bread: cur.bread };
   }
 }
 export function eatOutModal(key, di, k) {
@@ -370,7 +474,7 @@ export function eatOutModal(key, di, k) {
         const x = addEntry({ date: addDays(key, di) > today() ? today() : addDays(key, di), amount: amt, cat: sp.cat, note: kind === "eatout" ? "聚餐 · " + nm : kind === "mealdeal" ? "Meal Deal" : nm, meta: { menu: `${key}/${di}/${k}` } });
         let msg = `记下了 ${money(amt)}`;
         if (r) {
-          if (boughtFor(key, di)) { pushLater(key, di, k, { r: e.r, rice: e.rice }); msg += `，「${r.name}」往后挪了一顿`; }
+          if (boughtFor(key, di)) { pushLater(key, di, k, { r: e.r, rice: e.rice, bread: e.bread }); msg += `，「${r.name}」往后挪了一顿`; }
           else msg += "，采购清单已经少买这顿的";
         }
         w.days[di][k] = { custom: { kind, ...p, name: nm, paid: { amt, eid: x.id } }, lock: true };
