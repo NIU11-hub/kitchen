@@ -440,7 +440,7 @@ async function applyInboxOnce() {
   const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id));
   if (!todo.length) return;
   const snap = snapshot();
-  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0, regen = false;
+  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0, regen = false, dropped = [];
   for (const b of todo) {
     // redo：先删掉这几张记过的小票（店|日期|总额），下面按新的分类重记
     for (const rc of b.redo || []) for (const x of L().E.filter(z => z.meta?.rc === String(rc).toLowerCase())) removeEntry(x.id, true);
@@ -458,6 +458,8 @@ async function applyInboxOnce() {
       const x = addEntry({ date: b.payDate || today(), amount: +o.a || 0, cat: "__one", note: o.n });
       o.paid = true; o.xid = x.id; paid.push(o.n);
     }
+    // drop：不用付了的待付大额（名字包含即可），直接删掉
+    for (const nm of b.drop || []) { const i = S.ones.findIndex(z => !z.paid && z.n.includes(nm)); if (i >= 0) dropped.push(S.ones.splice(i, 1)[0].n); }
     // goal：用储蓄罐（比如冰岛）的钱付的，不占每月预算 [{d, a, n, g}]；罐里不够的那部分算从手上的钱出
     for (const o of b.goal || []) {
       const g = S.goals.find(z => z.n.includes(o.g)), a = round2(+o.a || 0); if (!g || !(a > 0)) continue;
@@ -484,8 +486,9 @@ async function applyInboxOnce() {
     S.inbox.push(b.id);
   }
   save(); ui.rerender();
-  if (!n && !paid.length) { if (inv || regen) toast(`家里的库存更新了 ${inv} 样${regen ? "，菜单按库存重排了" : ""}`); return; }
-  toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${skipped ? `（${skipped} 张已经记过，跳过了）` : ""}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}`, () => restoreSnap(snap));
+  const dr = dropped.length ? `「${dropped.join("、")}」不用付了，删掉了` : "";
+  if (!n && !paid.length) { if (dr) toast(dr, () => restoreSnap(snap)); else if (inv || regen) toast(`家里的库存更新了 ${inv} 样${regen ? "，菜单按库存重排了" : ""}`); return; }
+  toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${skipped ? `（${skipped} 张已经记过，跳过了）` : ""}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}${dr ? "；" + dr : ""}`, () => restoreSnap(snap));
 }
 
 /* ---------- 储蓄罐：每个月底把没花完的存进去 ---------- */
