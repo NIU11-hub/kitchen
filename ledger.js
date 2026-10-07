@@ -478,6 +478,8 @@ async function applyInboxOnce() {
       } else {
         const r = store.byId[x.r]; if (!r) continue;
         day[x.k] = entryFor(r, x.k, x.lock ? { lock: true } : {});
+        if (x.rice != null) day[x.k].rice = x.rice;
+        if (x.bread != null) { if (x.bread) day[x.k].bread = x.bread; else delete day[x.k].bread; }
       }
       saveDoc("menu"); regen = true;
     }
