@@ -7,6 +7,7 @@ import { generate, week, entryFor } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
+const INBOX_V = 20261007;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
@@ -437,7 +438,8 @@ async function applyInboxOnce() {
   let box;
   try { const r = await fetch("inbox.json", { cache: "no-cache" }); if (!r.ok) return; box = await r.json(); } catch (e) { return; }
   const S = L().S; S.inbox = S.inbox || [];
-  const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id));
+  // minV：这一批要用到新功能时写上，浏览器还在用旧缓存代码就先不记，等刷新到新代码再记
+  const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id) && !(+b.minV > INBOX_V));
   if (!todo.length) return;
   const snap = snapshot();
   let n = 0, sum = 0, paid = [], skipped = 0, inv = 0, regen = false, dropped = [];
