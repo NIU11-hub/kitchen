@@ -126,7 +126,7 @@ export function nameOf(id) {
   const c = catOf(id); return c ? c.n : "其他";
 }
 const isSpend = x => x.cat !== "__save" && x.cat !== "__take";
-function flow(x) { const a = +x.amount || 0; if (x.cat === "__take") return a; if (goalOf(x.cat)) return 0; return -a; }
+function flow(x) { const a = +x.amount || 0; if (x.cat === "__take") return a; if (goalOf(x.cat)) return x.meta?.hand ? -a : 0; return -a; }
 
 // 开始记账的那个月，按剩下的天数折算（话费这种每月一次的不折算）
 function factor(c, m) {
@@ -255,7 +255,7 @@ export function removeEntry(id, quiet) {
   const S = L().S, E = L().E;
   const i = E.findIndex(x => x.id === id); if (i < 0) return null;
   const x = E[i], a = +x.amount || 0, g = goalOf(x.cat);
-  if (g) g.s = round2((+g.s || 0) + a);
+  if (g && !x.meta?.hand) g.s = round2((+g.s || 0) + a);
   if (x.cat === "__save") { const q = goalOf(x.meta?.goal) || S.goals[0]; if (q) q.s = round2(Math.max(0, (+q.s || 0) - a)); }
   if (x.cat === "__take") { const q = goalOf(x.meta?.goal) || S.goals.find(g2 => x.note === g2.n + " 取出"); if (q) q.s = round2((+q.s || 0) + a); }
   if (x.cat === "__one") for (const o of S.ones) if (o.xid === x.id) { o.paid = false; o.xid = ""; }
@@ -458,10 +458,25 @@ async function applyInboxOnce() {
       const x = addEntry({ date: b.payDate || today(), amount: +o.a || 0, cat: "__one", note: o.n });
       o.paid = true; o.xid = x.id; paid.push(o.n);
     }
-    // set：直接把某天某一格换成指定的菜 [{d, k, r, lock}]
+    // goal：用储蓄罐（比如冰岛）的钱付的，不占每月预算 [{d, a, n, g}]；罐里不够的那部分算从手上的钱出
+    for (const o of b.goal || []) {
+      const g = S.goals.find(z => z.n.includes(o.g)), a = round2(+o.a || 0); if (!g || !(a > 0)) continue;
+      const pot = round2(Math.min(a, Math.max(0, +g.s || 0))), hand = round2(a - pot);
+      if (pot > 0) { g.s = round2((+g.s || 0) - pot); addEntry({ date: o.d, amount: pot, cat: g.id, note: o.n, meta: { ib: b.id } }); }
+      if (hand > 0) addEntry({ date: o.d, amount: hand, cat: g.id, note: o.n, meta: { ib: b.id, hand: true } });
+      n++; sum += a;
+    }
+    // set：直接把某天某一格换成指定的菜 [{d, k, r, lock}]；也可以是 {d, k, custom:{name,kcal,p,c,f}} 或 {d, k, from: 抄哪天的同一格}
     for (const x of b.set || []) {
-      const r = store.byId[x.r]; if (!r) continue;
-      week(mondayOf(x.d), true).days[(parse(x.d).getDay() + 6) % 7][x.k] = entryFor(r, x.k, x.lock ? { lock: true } : {});
+      const day = week(mondayOf(x.d), true).days[(parse(x.d).getDay() + 6) % 7];
+      if (x.custom) day[x.k] = { custom: { kind: "custom", ...x.custom }, rice: 0, lock: true };
+      else if (x.from) {
+        const src = week(mondayOf(x.from))?.days[(parse(x.from).getDay() + 6) % 7]?.[x.k]; if (!src) continue;
+        const c = JSON.parse(JSON.stringify(src)); if (c.custom) delete c.custom.paid; day[x.k] = { ...c, lock: true };
+      } else {
+        const r = store.byId[x.r]; if (!r) continue;
+        day[x.k] = entryFor(r, x.k, x.lock ? { lock: true } : {});
+      }
       saveDoc("menu"); regen = true;
     }
     // regen：库存更新后，从这天起没锁的格子按家里有的东西重排
@@ -478,7 +493,8 @@ function monthShift(m, n) { const [y, mo] = m.split("-").map(Number); const d = 
 const mLabel = m => `${+m.slice(0, 4)} 年 ${+m.slice(5)} 月`;
 const fmtDate = s => `${+s.slice(0, 4)} 年 ${+s.slice(5, 7)} 月 ${+s.slice(8)} 日`;
 const lastDay = m => { const [y, mo] = m.split("-").map(Number); return `${m}-${String(new Date(y, mo, 0).getDate()).padStart(2, "0")}`; };
-function mainGoal() { const G = L().S.goals; return G.find(g => !g.open && (+g.s || 0) < (+g.t || 0)) || G.find(g => g.open) || G[0] || null; }
+const goalPaid = g => L().E.filter(x => x.cat === g.id).reduce((a, x) => a + (+x.amount || 0), 0);
+function mainGoal() { const G = L().S.goals; return G.find(g => !g.open && (+g.s || 0) + goalPaid(g) < (+g.t || 0)) || G.find(g => g.open) || G[0] || null; }
 function savedLog() { const S = L().S; S.saved = S.saved || {}; return S.saved; }
 
 function banner(text, btns) { return `<div class="banner"><span>${text}</span>${btns ? `<span class="acts">${btns}</span>` : ""}</div>`; }
@@ -509,9 +525,9 @@ export function potHtml(compact) {
   const hist = Object.entries(log).filter(([, v]) => v.amt).sort().slice(-6);
   let h = "";
   for (const g of S.goals) {
-    const t = +g.t || 0, s = +g.s || 0, full = t > 0 && s >= t;
+    const t = +g.t || 0, s = +g.s || 0, paid = round2(L().E.filter(x => x.cat === g.id).reduce((a, x) => a + (+x.amount || 0), 0)), full = t > 0 && s + paid >= t;
     if (g.open && s <= 0) continue;
-    const pr = t > 0 ? Math.min(100, s / t * 100) : 0, need = Math.max(0, round2(t - s));
+    const pr = t > 0 ? Math.min(100, (s + paid) / t * 100) : 0, need = Math.max(0, round2(t - s - paid));
     let plan = "";
     if (!g.open && !full && g.due) {
       // 出发前还有几次月底存钱：从这个月底到出发前一个月底
@@ -522,6 +538,7 @@ export function potHtml(compact) {
     }
     h += `<div class="goal">
       <div class="t"><span class="nm">${esc(g.n)}</span><span class="v num"><b>£${f2(s)}</b>${t > 0 ? ` / ${f2(t)}` : ""}</span></div>
+      ${paid > 0 ? `<p class="hint">已经付掉 <b class="num">£${f2(paid)}</b>（算在目标里）</p>` : ""}
       ${t > 0 ? `<div class="pb pur"><i style="width:${pr.toFixed(0)}%"></i></div>` : ""}
       ${g.open ? `<p class="hint">不设上限，冰岛存满以后多出来的放这里。</p>` : full ? `<p class="note ok">✓ 存够了</p>` : `<p class="hint">还差 <b class="num">£${f2(need)}</b></p>${compact ? "" : plan}`}
       ${compact ? "" : `<div class="acts mtop"><button class="btn" data-act="saveto" data-id="${g.id}">手动存一笔</button>
