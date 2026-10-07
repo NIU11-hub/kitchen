@@ -458,6 +458,14 @@ async function applyInboxOnce() {
       const x = addEntry({ date: b.payDate || today(), amount: +o.a || 0, cat: "__one", note: o.n });
       o.paid = true; o.xid = x.id; paid.push(o.n);
     }
+    // del：删掉记错的某一笔 [{d, a, n}]（日期、金额对上，备注包含 n）
+    for (const o of b.del || []) for (const x of L().E.filter(z => z.date === o.d && Math.abs((+z.amount || 0) - (+o.a || 0)) < 0.005 && (z.note || "").includes(o.n))) removeEntry(x.id, true);
+    // ones：已经付了的一次性大额 [{d, a, n, spread: {start, months, plan}}]
+    for (const o of b.ones || []) {
+      const x = addEntry({ date: o.d, amount: +o.a || 0, cat: "__one", note: o.n, meta: { ib: b.id } });
+      if (o.spread) { x.spread = { start: o.d.slice(0, 7), ...o.spread }; save(); }
+      n++; sum += +o.a || 0;
+    }
     // drop：不用付了的待付大额（名字包含即可），直接删掉
     for (const nm of b.drop || []) { const i = S.ones.findIndex(z => !z.paid && z.n.includes(nm)); if (i >= 0) dropped.push(S.ones.splice(i, 1)[0].n); }
     // goal：用储蓄罐（比如冰岛）的钱付的，不占每月预算 [{d, a, n, g}]；罐里不够的那部分算从手上的钱出
