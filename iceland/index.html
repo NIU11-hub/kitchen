@@ -300,11 +300,13 @@ html { scroll-behavior: smooth; }
     <li><strong>每个人都要本人去</strong>，按预约时间到场录指纹。中心只让申请人进，<strong>最早提前 15 分钟</strong>才放人。</li>
     <li>要填<strong>两份表</strong>：冰岛政府的网上申请表（第 3 步），和一份纸质申根表（第 4 步）。两份都打印、手签。</li>
     <li>所有材料交 <strong>A4 彩色复印件</strong>，原件带去给他们看。</li>
+    <li><strong>先订机票、住宿、保险，再填表。</strong>纸质表第 30 项要写酒店名和地址，第 5 步也要交这三样的单子，没订好填到一半会卡住。</li>
+    <li>递签后护照会被收走，大概到 11 月中旬才拿回来，<strong>这段时间不能出境</strong>，有出国安排的提前错开。</li>
   </ul>
   <h3>先在群里确认这 3 件事</h3>
   <ol>
     <li>三个人都是<strong>中国护照</strong>吗？中国护照去冰岛要申根签证。</li>
-    <li><strong>护照</strong>签发不超过 10 年、2027 年 3 月 17 日以后才过期、至少 2 页空白。<strong>英国签证</strong>要在离开申根区后至少还有 1 个月（2027 年 1 月 17 日以后过期）。</li>
+    <li><strong>护照</strong>签发不超过 10 年、2027 年 3 月 17 日以后才过期、至少 2 页空白。<strong>英国签证</strong>要在离开申根区后至少还有 3 个月，也就是 2027 年 3 月 17 日以后才过期（伦敦清单第 12 条）。</li>
     <li>钱是<strong>自己出</strong>（交自己的英国银行流水），还是<strong>父母出</strong>（多交父母流水和亲属关系证明，见第 5 步）？</li>
   </ol>
 </section>
@@ -381,7 +383,7 @@ html { scroll-behavior: smooth; }
       <tr class="grp"><td colspan="2">Applicant continued</td></tr>
       <tr><td class="f">Applicants home country</td><td class="fix">UNITED KINGDOM</td></tr>
       <tr><td class="f">Applicants home city / zip</td><td class="you">SOUTHAMPTON / 你的邮编</td></tr>
-      <tr><td class="f">Applicants home address</td><td class="you">一行写完，如 FLAT 406 24 BERNARD STREET</td></tr>
+      <tr><td class="f">Applicants home address</td><td class="you">一行写完，如 FLAT 12 34 HIGH STREET</td></tr>
       <tr><td class="f">Current occupation</td><td class="fix">Student, Trainee</td></tr>
       <tr><td class="f">Employer name</td><td>空着</td></tr>
       <tr><td class="f">Educational establishment</td><td class="fix">UNIVERSITY OF SOUTHAMPTON</td></tr>
@@ -399,7 +401,7 @@ html { scroll-behavior: smooth; }
   <ol class="do">
     <li><input type="checkbox" id="c3a"><label for="c3a"><strong>点 Next，勾 3 个确认框，点 Submit</strong><small>会得到一个申请号（S5-APP 开头），记下来</small></label></li>
     <li><input type="checkbox" id="c3b"><label for="c3b"><strong>存申请表 PDF</strong><small>点 <code>Display application for print out</code>，Ctrl+P 选"另存为 PDF"。打开看一眼生日没错。共 6 页，最后一页要手签：签名和护照上一样（中文签就签中文），Place 写 Southampton，Date 按 月/日/年 写</small></label></li>
-    <li><input type="checkbox" id="c3c"><label for="c3c"><strong>存确认邮件 PDF</strong><small>发件人 noreply@stjornarrad.is，标题 Application number: S5-APP-…。Outlook 网页版点"…→打印→另存为 PDF"。里面那串很长的链接是学校邮箱加的，不用管。清单上叫 Confirmation of online registration，必须打印</small></label></li>
+    <li><input type="checkbox" id="c3c"><label for="c3c"><strong>存确认邮件 PDF</strong><small>发件人 noreply@stjornarrad.is，标题 Application number: S5-APP-…。Outlook 网页版点"…→打印→另存为 PDF"。里面那串很长的链接是学校邮箱加的，不用管。清单上叫 Confirmation of online registration，打印一份，递签时手机里也把这封邮件打开备着，清单写的是给工作人员"出示"</small></label></li>
   </ol>
 </section>
 
@@ -452,12 +454,13 @@ html { scroll-behavior: smooth; }
     <li><input type="checkbox" id="c5l"><label for="c5l"><strong>VFS 预约信</strong>（整份打印）<small>后面几页是材料清单和"申请人须知"：清单由 VFS 工作人员当场打勾，须知那页<strong>等他们打完勾你再签名写日期</strong>，在家先别签</small></label></li>
     <li><input type="checkbox" id="c5c"><label for="c5c"><strong>冰岛网上申请表（签字）+ 确认邮件</strong>（第 3 步）</label></li>
     <li><input type="checkbox" id="c5b"><label for="c5b"><strong>纸质申根申请表（签字）</strong>（第 4 步）</label></li>
-    <li><input type="checkbox" id="c5a"><label for="c5a"><strong>护照原件 + 首页和所有有签证页的复印件</strong><small>近 5 年有过申根签的，新旧护照上所有申根签证页都复印带上；没有就不用</small></label></li>
-    <li><input type="checkbox" id="c5d"><label for="c5d"><strong>证件照</strong><small>白底彩色 35×45mm，6 个月内，护照上没用过的。<strong>准备 2 张</strong>。脸要占照片 80% 以上，不戴眼镜、不开美颜。街上的 Photo-Me 机器或 Boots 拍都行，<strong>国内照相馆拍的不行</strong>；VFS 现场拍要 £10–12</small></label></li>
+    <li><input type="checkbox" id="c5a"><label for="c5a"><strong>护照原件 + 首页和所有有签证页的复印件</strong><small>有旧护照的，<strong>旧护照原件也带上</strong>：清单写的是旧护照里只要有签证贴纸（有效或过期都算，不只申根，旧的英国学签贴纸也算）就要交，签证页一起复印</small></label></li>
+    <li><input type="checkbox" id="c5d"><label for="c5d"><strong>证件照</strong><small>白底彩色 35×45mm，6 个月内，护照上没用过的。<strong>准备 2 张</strong>：一张用胶棒贴在纸质申根表第 1 页右上角的照片框里，另一张备用。脸要占照片 80% 以上，不戴眼镜、不开美颜。街上的 Photo-Me 机器或 Boots 拍都行，<strong>国内照相馆拍的不行</strong>；VFS 现场拍要 £10–12</small></label></li>
     <li><input type="checkbox" id="c5e"><label for="c5e"><strong>旅行医疗保险单</strong><small>所有申根国有效、医疗保额 ≥ €30,000、含急救和遣返，日期覆盖整趟行程。买的时候可以前后各多保一天（12/12–12/18），更稳。<strong>保单和保险条款（policy wording）都要打印</strong></small></label></li>
-    <li><input type="checkbox" id="c5f"><label for="c5f"><strong>往返机票</strong><small>清单要的是"有 PNR 和本人名字的往返预订单"。我们定的易捷 U2 8843 / U2 8846（盖特威克 15:55 去，12/17 14:15 回），10 月 6 日每人往返 £79，三人一个订单在 easyJet 官网买，买真票最省事</small></label></li>
-    <li><input type="checkbox" id="c5g"><label for="c5g"><strong>住宿预订单</strong><small>每晚都要有，上面有你的名字。合住的订房时两人名字都填。选免费取消的</small></label></li>
-    <li><input type="checkbox" id="c5h"><label for="c5h"><strong>近 3 个月英国银行流水</strong><small><strong>10 月 19 日以后再导</strong>：最后一笔交易要在递签前 4 天内，这几天照常刷卡。必须是英国本地银行的 <strong>current account（主账户）</strong>，钱放在储蓄账户里不算，<strong>Monzo 的储蓄罐（Pots）导出前先转回主余额</strong>。3 个月要连续，开户不满 3 个月加开户证明。<strong>打印时余额最好 £1,500 以上</strong>（官方最低 40,000 ISK 约 £250，£1,500 是中介按过签经验给的稳妥线）。官方写要银行盖章：Monzo、Starling 盖不了，交 App 导出的 Statement PDF，本身就带最新交易；HSBC、巴克莱这类实体银行最好去柜台打 Account Summary + Bank Statement + Latest Transactions 并盖章。父母出钱的再加父母流水、资助信、父母身份证件、亲属关系证明（中文要翻译）</small></label></li>
+    <li><input type="checkbox" id="c5f"><label for="c5f"><strong>往返机票</strong><small>清单要的是"有 PNR 和本人名字的往返预订单"。我们定的易捷 U2 8843 / U2 8846（盖特威克 15:55 去，12/17 14:15 回），价格见"出行"页，三人一个订单在 easyJet 官网买，买真票最省事</small></label></li>
+    <li><input type="checkbox" id="c5g"><label for="c5g"><strong>住宿预订单</strong><small>每晚都要有，上面有你的名字。合住的订房时两人名字都填，选免费取消的。如果订单上只能写一个名字，没写上的那个人要多交一封<strong>同行确认信</strong>：订单上那个人写明两人同住、入住日期，签名写日期，再附他的护照首页复印件（签名）</small></label></li>
+    <li><input type="checkbox" id="c5h"><label for="c5h"><strong>近 3 个月英国银行流水</strong><small><strong>10 月 19 日以后再导</strong>：最后一笔交易要在递签前 4 天内，这几天照常刷卡。必须是英国本地银行的 <strong>current account（主账户）</strong>，钱放在储蓄账户里不算，<strong>Monzo 的储蓄罐（Pots）导出前先转回主余额</strong>。3 个月要连续，开户不满 3 个月加开户证明。<strong>打印时余额最好 £1,500 以上</strong>（官方标准是住酒店每天 8,000 ISK，5 天就是 40,000 ISK，约 £250；£1,500 是中介按过签经验给的稳妥线）。官方写要银行盖章：Monzo、Starling 盖不了，交 App 导出的 Statement PDF，本身就带最新交易；HSBC、巴克莱这类实体银行最好去柜台打 Account Summary + Bank Statement + Latest Transactions 并盖章。<strong>父母出钱也要交自己的流水</strong>，清单写的是不管谁出钱都要交</small></label></li>
+    <li><input type="checkbox" id="c5m"><label for="c5m"><strong>父母资助材料</strong>（父母出钱的才要）<small>① 父母近 3 个月银行流水；② 父母签字的资助信（写明愿意承担这次旅行全部费用，附上你的姓名、护照号、出行日期）；③ 父母护照或身份证复印件，复印件上签名；④ 亲属关系证明，出生证明或户口本都行。<strong>中文材料全部附英文翻译</strong>。父母出钱的，官方资金标准降到每天 4,000 ISK</small></label></li>
     <li><input type="checkbox" id="c5i"><label for="c5i"><strong>学校证明两份</strong><small>都要是<strong>递签前一周内</strong>开的。① 标准在读证明：SUSSED 里自己下载（Confirmation of Student Enrolment，有签名和校章），<strong>10 月 16 日以后重新下载一份</strong>，日期才是新的。② 申根签证信：学校官网 Letter requests 页 → 在线表格 → 第 4 题选 <strong>Schengen Visa Application Letter</strong>，Embassy Name 填 Embassy of Iceland, London，出发/返回填 2026/12/13 和 2026/12/17，Reason for Travel 里写上请他们注明每周课时。学校只给假期出行开这封信，要几个工作日，越早申请越好</small></label></li>
     <li><input type="checkbox" id="c5j"><label for="c5j"><strong>英国居留证明（share code）</strong><small>在 <a href="https://www.gov.uk/view-prove-immigration-status" target="_blank" rel="noopener">gov.uk/view-prove-immigration-status</a> 登录，生成 share code，把显示身份和有效期的页面存 PDF 打印；<strong>eVisa 带照片的那页也打印一份</strong>。有 BRP 卡的再复印一份</small></label></li>
     <li><input type="checkbox" id="c5k"><label for="c5k"><strong>行程单</strong>（可选）<small>打印"行程"页的每日行程</small></label></li>
@@ -529,7 +532,7 @@ html { scroll-behavior: smooth; }
   </table></div>
 </section>
 
-<footer>2026 年 10 月 6 日按子俊实际办理的流程更新。规定可能变，递签前一周再看一眼 VFS 页面。</footer>
+<footer>2026 年 10 月 6 日按子俊实际办理的流程更新，10 月 9 日对照 VFS 伦敦材料清单（2025 年 5 月版）补充。规定可能变，递签前一周再看一眼 VFS 页面。</footer>
 
 </div>
 <div class="tab" id="tab-go" data-tab="go" hidden>
