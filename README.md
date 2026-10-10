@@ -62,3 +62,11 @@ inbox.json 的一批里可以带：
 ## 冰岛三人行（iceland/）
 
 `iceland/index.html` 是 2026 年 12 月冰岛旅行的行程和签证攻略，单独一个页面，和厨房账本的数据无关。打开地址是网站后面加 `/iceland/`。
+
+## 素日（app/）
+
+`app/` 是手机上用的个人 App「素日」：iPhone 用 Safari 打开网站后面加 `/app/`，分享 → 添加到主屏幕。和厨房账本用同一个 Supabase，体重存在 `docs` 表的 `body`（`{weights: {"2026-10-10": 76.4}}`）。
+
+- 首页：手机定位的天气（Open-Meteo，地名用 BigDataCloud，不给定位就按南安普顿）、一句天气加穿衣、16:00 健身时的天气、每日一句（`quotes.js`）、体重
+- 训练 / 吃饭 / 记账三页还在做
+- 改了 js/css 把 `app/index.html` 里的 `v=` 一起换掉

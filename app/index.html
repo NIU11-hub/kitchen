@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>素日</title>
+<meta name="theme-color" content="#F2F1EE">
+<meta name="color-scheme" content="light">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="素日">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500&display=swap">
+<link rel="stylesheet" href="app.css?v=20261010a">
+</head>
+<body>
+<div class="app">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <main id="view"></main>
+  <nav class="bar" id="bar" aria-label="底栏">
+    <button data-tab="home" aria-current="page">首页</button>
+    <button data-tab="train">训练</button>
+    <button data-tab="food">吃饭</button>
+    <button data-tab="money">记账</button>
+  </nav>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<!-- 改了 js/css 记得把下面和上面的 v 一起换掉，不然手机可能还用旧缓存 -->
+<script type="importmap">{"imports": {"./app.js": "./app.js?v=20261010a", "./quotes.js": "./quotes.js?v=20261010a", "../config.js": "../config.js?v=20261010a"}}</script>
+<script type="module" src="app.js?v=20261010a"></script>
+</body>
+</html>
