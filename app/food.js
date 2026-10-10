@@ -42,7 +42,7 @@ function draw(){
 
 function todayHtml(t){
   const di = dow(t), key = mondayOf(t), w = week(key), word = dayOff ? "明天" : "今天";
-  let h = `<div class="dayrow"><span class="tg"><button data-act="dayoff" data-v="0" aria-pressed="${!dayOff}">今天</button><button data-act="dayoff" data-v="1" aria-pressed="${!!dayOff}">明天</button></span><span class="hintr">点一顿可以换</span></div>`;
+  let h = `<div class="dayrow"><span class="tg"><button data-act="dayoff" data-v="0" aria-pressed="${!dayOff}">今天</button><button data-act="dayoff" data-v="1" aria-pressed="${!!dayOff}">明天</button></span></div>`;
   if (!w) return h + `<p class="soon">${key === thisWeek() ? "这周" : "下周"}菜单还没排，在电脑上的厨房账本里排一下。</p>`;
   if (offOf(key, di)) return h + `<p class="soon">${word}不排，自己看着吃。</p>`;
   const d = w.days[di] || {};
