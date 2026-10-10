@@ -35,7 +35,7 @@ export function remindLine(){
 
 function line(x){
   const d = when(x.at);
-  return `${x.t}|${d ? `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` : ""}`;
+  return `${x.t}|${d ? `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` : ""}`;
 }
 function send(list){
   if (!list.length) return;
