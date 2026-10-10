@@ -31,7 +31,7 @@ const clone = o => JSON.parse(JSON.stringify(o));
 async function fetchJSON(p) { const r = await fetch(p, { cache: "no-cache" }); if (!r.ok) throw new Error(p + " " + r.status); return r.json(); }
 
 export async function initStore() {
-  const [seedRecipes, seedDocs] = await Promise.all([fetchJSON("seed-recipes.json"), fetchJSON("seed-docs.json")]);
+  const [seedRecipes, seedDocs] = await Promise.all([fetchJSON(new URL("seed-recipes.json", import.meta.url)), fetchJSON(new URL("seed-docs.json", import.meta.url))]);
   store._recipeSeed = seedRecipes;
   if (SUPABASE_URL && SUPABASE_KEY) {
     try { await initCloud(seedRecipes, seedDocs); return; }

@@ -1,6 +1,8 @@
 // 素日：手机上的个人 App。现在做好的是首页和底栏，训练 / 吃饭 / 记账三页接着做。
 import { docs, saveDoc, initDB, setHandlers } from "./db.js";
 import { renderTrain, leaveTrain, redrawTrain } from "./train.js";
+import { renderFood, leaveFood, redrawFood } from "./food.js";
+import { initStore, onChange } from "../store.js";
 import { QUOTES } from "./quotes.js";
 
 const $ = s => document.querySelector(s);
@@ -14,7 +16,7 @@ const WEEK = "日一二三四五六";
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 function toast(msg){
-  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  const t = $("#toast"); t.querySelector(".t").textContent = msg; t.querySelector("button").hidden = true; t.classList.add("on");
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2200);
 }
 
@@ -305,7 +307,6 @@ function paintWeight(editing){
 }
 
 const SOON = {
-  food:  { ttl:"吃饭", meta:"下一步做", body:`这页下一步做：今天三餐、做饭模式、采购清单。现在可以先用<a href="../">电脑版厨房账本</a>。` },
   money: { ttl:"记账", meta:"第四步做", body:`这页第四步做：本月还能花多少、记一笔、最近几笔。现在可以先用<a href="../">电脑版厨房账本</a>。` }
 };
 function renderSoon(k){
@@ -322,7 +323,8 @@ function go(k){
   sky.show(k === "home");
   view.scrollTop = 0;
   if (k !== "train") leaveTrain();
-  if (k === "home") renderHome(); else if (k === "train") renderTrain(view); else renderSoon(k);
+  if (k !== "food") leaveFood();
+  if (k === "home") renderHome(); else if (k === "train") renderTrain(view); else if (k === "food") renderFood(view); else renderSoon(k);
 }
 document.querySelectorAll("#bar button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab !== tab) go(b.dataset.tab); }));
 
@@ -331,7 +333,7 @@ let lastDay = dkey(new Date());
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
   const d = dkey(new Date());
-  if (d !== lastDay) { if (tab === "home") renderHome(); else if (tab === "train") redrawTrain(); }
+  if (d !== lastDay) { if (tab === "home") renderHome(); else if (tab === "train") redrawTrain(); else if (tab === "food") redrawFood(); }
   lastDay = d;
   refreshWeather(false);
 });
@@ -340,3 +342,6 @@ go("home");
 refreshWeather(true);
 setHandlers({ error: () => toast("没存到云端，先存在手机里了"), load: () => { if (tab === "home") paintWeight(); else if (tab === "train") redrawTrain(); } });
 initDB();
+// 厨房账本的数据（菜单、食谱、采购、记账），吃饭和记账两页用
+onChange(what => { if (what !== "status") redrawFood(); });
+initStore().then(redrawFood).catch(e => { console.error(e); toast("菜单没加载出来，过会儿再打开看看"); });
