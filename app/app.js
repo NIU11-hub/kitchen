@@ -2,7 +2,11 @@
 import { docs, saveDoc, initDB, setHandlers } from "./db.js";
 import { renderTrain, leaveTrain, redrawTrain } from "./train.js";
 import { renderFood, leaveFood, redrawFood } from "./food.js";
+import { renderMoney, leaveMoney, redrawMoney } from "./money.js";
 import { initStore, onChange } from "../store.js";
+import { applyInbox, migrateLedger } from "../ledger.js";
+import { migrateMenu, migrateWeek } from "../menu.js";
+import { ui } from "../ui.js";
 import { QUOTES } from "./quotes.js";
 
 const $ = s => document.querySelector(s);
@@ -15,9 +19,11 @@ const dkey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}
 const WEEK = "日一二三四五六";
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-function toast(msg){
-  const t = $("#toast"); t.querySelector(".t").textContent = msg; t.querySelector("button").hidden = true; t.classList.add("on");
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), 2200);
+function toast(msg, undo){
+  const t = $("#toast"), b = t.querySelector("button");
+  t.querySelector(".t").textContent = msg; b.hidden = !undo; t.classList.add("on");
+  b.onclick = () => { t.classList.remove("on"); b.onclick = null; if (undo) undo(); };
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("on"), undo ? 6000 : 2200);
 }
 
 /* ================= 天气 ================= */
@@ -306,17 +312,6 @@ function paintWeight(editing){
   $("#wbtn").onclick = () => paintWeight(true);
 }
 
-const SOON = {
-  money: { ttl:"记账", meta:"第四步做", body:`这页第四步做：本月还能花多少、记一笔、最近几笔。现在可以先用<a href="../">电脑版厨房账本</a>。` }
-};
-function renderSoon(k){
-  const s = SOON[k], now = new Date();
-  view.innerHTML = `<section class="page">
-    <div class="top"><i></i><span>${now.getMonth()+1}.${now.getDate()}　周${WEEK[now.getDay()]}</span></div>
-    <div class="ttl">${s.ttl}</div><div class="meta">${s.meta}</div>
-    <p class="soon">${s.body}</p></section>`;
-}
-
 function go(k){
   tab = k;
   document.querySelectorAll("#bar button").forEach(b => { if (b.dataset.tab === k) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
@@ -324,7 +319,8 @@ function go(k){
   view.scrollTop = 0;
   if (k !== "train") leaveTrain();
   if (k !== "food") leaveFood();
-  if (k === "home") renderHome(); else if (k === "train") renderTrain(view); else if (k === "food") renderFood(view); else renderSoon(k);
+  if (k !== "money") leaveMoney();
+  if (k === "home") renderHome(); else if (k === "train") renderTrain(view); else if (k === "food") renderFood(view); else renderMoney(view, { toast });
 }
 document.querySelectorAll("#bar button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab !== tab) go(b.dataset.tab); }));
 
@@ -333,7 +329,7 @@ let lastDay = dkey(new Date());
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
   const d = dkey(new Date());
-  if (d !== lastDay) { if (tab === "home") renderHome(); else if (tab === "train") redrawTrain(); else if (tab === "food") redrawFood(); }
+  if (d !== lastDay) { if (tab === "home") renderHome(); else if (tab === "train") redrawTrain(); else if (tab === "food") redrawFood(); else redrawMoney(); }
   lastDay = d;
   refreshWeather(false);
 });
@@ -343,5 +339,7 @@ refreshWeather(true);
 setHandlers({ error: () => toast("没存到云端，先存在手机里了"), load: () => { if (tab === "home") paintWeight(); else if (tab === "train") redrawTrain(); } });
 initDB();
 // 厨房账本的数据（菜单、食谱、采购、记账），吃饭和记账两页用
-onChange(what => { if (what !== "status") redrawFood(); });
-initStore().then(redrawFood).catch(e => { console.error(e); toast("菜单没加载出来，过会儿再打开看看"); });
+const redrawKitchen = () => { redrawFood(); redrawMoney(); };
+ui.rerender = redrawKitchen;
+onChange(what => { if (what !== "status") redrawKitchen(); });
+initStore().then(() => { migrateLedger(); migrateMenu(); migrateWeek(); redrawKitchen(); applyInbox(); }).catch(e => { console.error(e); toast("菜单没加载出来，过会儿再打开看看"); });

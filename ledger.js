@@ -436,7 +436,7 @@ export async function applyInbox() {
 }
 async function applyInboxOnce() {
   let box;
-  try { const r = await fetch("inbox.json", { cache: "no-cache" }); if (!r.ok) return; box = await r.json(); } catch (e) { return; }
+  try { const r = await fetch(new URL("inbox.json", import.meta.url), { cache: "no-cache" }); if (!r.ok) return; box = await r.json(); } catch (e) { return; }
   const S = L().S; S.inbox = S.inbox || [];
   // minV：这一批要用到新功能时写上，浏览器还在用旧缓存代码就先不记，等刷新到新代码再记
   const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id) && !(+b.minV > INBOX_V));
