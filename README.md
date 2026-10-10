@@ -71,4 +71,5 @@ inbox.json 的一批里可以带：
 - 训练：计划在 `plan.js`（4 周一个周期，第 1 周从 2026-10-12 开始，第 4 周减量）。练的记录存在 `docs` 表的 `train`（`log["日期|练哪天"]`），下次的重量按上次实际做的算：做满就加 `step`，连续两次同重量没做满退 `drop`；换过的动作和减量周不算进度
 - 吃饭：直接用厨房账本的 `store.js`、`menu.js`、`shop.js`（同一份菜单、食谱、采购勾选），今天三餐、今晚要做、做饭模式、下一趟采购清单
 - 记账：用厨房账本的 `ledger.js`（同一本账）。这个月还能花多少、各类上限、每天花了多少的日历、最近几笔、记一笔。打开时也会读 `inbox.json`，Claude 推的小票手机上也能自动入账
-- 改了 js/css 把 `app/index.html` 里的 `v=` 一起换掉
+- 提醒：Claude 把提醒写进 `app/reminders.json`（`{items:[{id, t, at:"2026-10-14 09:00"}]}`）推上来，首页出现一行，点了交给 iPhone 快捷指令「素日提醒」（输入每行是 `标题|2026/10/14 09:00`）；加过的记在 `docs` 表的 `remind`
+- 改了 js/css：`app/index.html` 里的 `v=`、`app/app.js` 里的 `VERSION`、`app/version.json` 三处换成同一个新版本号。App 打开时比对 version.json，有新的就自己刷新
