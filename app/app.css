@@ -213,7 +213,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 .ritem .rt{flex:1;min-width:0;font-family:var(--serif);font-size:15px;color:var(--fg)}
 .ritem .rw{font-size:11px;color:var(--mu);white-space:nowrap;font-variant-numeric:tabular-nums}
 .ritem button{font-size:12px;border:1px solid var(--edge);border-radius:999px;padding:4px 12px;color:var(--fg)}
-.rall{background:var(--fg);color:var(--bg);border-radius:999px;padding:11px 0;font-size:14px;letter-spacing:.1em}
+.rsub{font-size:11px;color:var(--mu);letter-spacing:.08em;margin-top:6px}
+.ritem.did .rt{color:var(--mu)}
 
 /* 底栏 */
 .bar{position:relative;display:grid;grid-template-columns:repeat(4,1fr);padding:16px 22px calc(env(safe-area-inset-bottom,0px) + 14px);font-family:var(--ui);background:var(--bg)}

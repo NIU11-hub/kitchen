@@ -27,7 +27,7 @@ export async function loadReminders(cb){
   } catch(e) {}
 }
 
-// 首页那一行
+// 首页那一行（只数还没加的）
 export function remindLine(){
   const n = pending().length;
   return n ? `<button class="rline" data-remind="open"><i></i><span class="one">Claude 给你 ${n} 条提醒</span><em aria-hidden="true">›</em></button>` : "";
@@ -39,8 +39,8 @@ function line(x){
 }
 function send(list){
   if (!list.length) return;
-  const text = list.map(line).join("\n");
-  for (const x of list) added()[x.id] = Date.now();
+  const text = line(list[0]);
+  added()[list[0].id] = Date.now();
   saveDoc("remind");
   location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(SHORTCUT)}&input=text&text=${encodeURIComponent(text)}`;
   drawSheet(); onChange();
@@ -56,18 +56,19 @@ function ensureSheet(){
     const b = ev.target.closest("[data-r]"); if (!b) return;
     const a = b.dataset.r;
     if (a === "x") return close();
-    if (a === "all") return send(pending());
-    if (a === "one") return send(pending().filter(x => x.id === b.dataset.id));
+    if (a === "one") return send(items.filter(x => x.id === b.dataset.id));
   });
 }
 function close(){ if (sheet) sheet.hidden = true; }
 function drawSheet(){
-  const list = pending();
+  const list = pending(), now = Date.now();
+  const recent = items.filter(x => added()[x.id] && now - added()[x.id] < 864e5);
+  const row = (x, again) => { const d = when(x.at); return `<div class="ritem${again ? " did" : ""}"><span class="rt one">${esc(x.t)}</span><span class="rw">${d ? label(d) : ""}</span><button data-r="one" data-id="${esc(x.id)}">${again ? "再加一次" : "加"}</button></div>`; };
   sheet.innerHTML = `<div class="panel" role="dialog" aria-label="Claude 给的提醒">
     <div class="ph"><span>Claude 给的提醒</span><button data-r="x">收起</button></div>
-    ${list.length ? list.map(x => { const d = when(x.at); return `<div class="ritem"><span class="rt one">${esc(x.t)}</span><span class="rw">${d ? label(d) : ""}</span><button data-r="one" data-id="${esc(x.id)}">加</button></div>`; }).join("")
-      : `<p class="hint">都加进提醒事项了。</p>`}
-    ${list.length > 1 ? `<button class="rall" data-r="all">全部加到提醒事项</button>` : ""}
+    ${list.map(x => row(x, false)).join("")}
+    ${recent.length ? `<div class="rsub">刚加过的，没加上可以再点一次</div>` + recent.map(x => row(x, true)).join("") : ""}
+    ${!list.length && !recent.length ? `<p class="hint">没有新的提醒。</p>` : ""}
     <p class="ftip">点了会跳到「快捷指令」，加好以后切回素日就行</p>
   </div>`;
 }
