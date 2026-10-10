@@ -1,9 +1,9 @@
 // 吃饭页：今天三餐、今晚要做、做饭模式、下一趟采购清单。数据直接用厨房账本的（同一个库）。
 import { store, saveDoc } from "../store.js";
-import { SLOTS, DAY } from "../data.js";
-import { week, thisWeek, entryN, dayN, offOf, dayKindOf, tonightTodo } from "../menu.js";
-import { buildShop, nextTrip } from "../shop.js";
-import { today, addDays, dow, money } from "../util.js";
+import { SLOTS, DAY, SPECIAL } from "../data.js";
+import { week, thisWeek, entryN, dayN, offOf, dayKindOf, tonightTodo, entryFor } from "../menu.js";
+import { buildShop, nextTrip, invLeft } from "../shop.js";
+import { today, addDays, dow, money, mondayOf } from "../util.js";
 
 const WEEK = "日一二三四五六", DAYS = ["周一","周二","周三","周四","周五","周六","周日"];
 const CHECK = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5 5.6 10.4 11.5 3.8" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -17,7 +17,8 @@ function amt(i, k){
   return (g < 10 ? r1(g) : r0(g)) + " g";
 }
 
-let root = null, seg = "today", onPage = false, popKey = null;
+let root = null, seg = "today", onPage = false, popKey = null, dayOff = 0, swapEl = null, swapK = null;
+const toastFn = m => { const t = document.getElementById("toast"); if (!t) return; t.querySelector(".t").textContent = m; t.querySelector("button").hidden = true; t.classList.add("on"); clearTimeout(toastFn._t); toastFn._t = setTimeout(() => t.classList.remove("on"), 2200); };
 const ck = { r:null, n:1, i:0, left:0, end:0, raf:0, extra:"" };
 let cookEl = null, wl = null;
 
@@ -29,33 +30,32 @@ function draw(){
   let h = `<section class="page food">
     <div class="top"><i></i><span>${now.getMonth()+1}.${now.getDate()}　周${WEEK[now.getDay()]}</span><span class="r">${ready() ? (dayKindOf(thisWeek(), di) === "不排" ? "今天不排" : dayKindOf(thisWeek(), di) + "日") : ""}</span></div>
     <div class="seg" role="tablist">
-      <button role="tab" data-act="seg" data-v="today" aria-selected="${seg === "today"}">今天</button>
+      <button role="tab" data-act="seg" data-v="today" aria-selected="${seg === "today"}">三餐</button>
       <button role="tab" data-act="seg" data-v="shop" aria-selected="${seg === "shop"}">采购</button>
     </div>`;
   if (!ready()) h += `<p class="soon">正在拿菜单…</p>`;
-  else h += seg === "today" ? todayHtml(t, di) : shopHtml();
+  else h += seg === "today" ? todayHtml(addDays(t, dayOff)) : shopHtml();
   h += `</section>`;
   root.innerHTML = h;
   if (popKey){ const el = root.querySelector(`[data-key="${popKey}"] .tick`); if (el){ el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); } popKey = null; }
 }
 
-function todayHtml(t, di){
-  const key = thisWeek(), w = week(key);
-  if (!w) return `<p class="soon">这周菜单还没排，在电脑上的厨房账本里排一下。</p>`;
-  if (offOf(key, di)) return `<p class="soon">今天不排，自己看着吃。</p>`;
+function todayHtml(t){
+  const di = dow(t), key = mondayOf(t), w = week(key), word = dayOff ? "明天" : "今天";
+  let h = `<div class="dayrow"><span class="tg"><button data-act="dayoff" data-v="0" aria-pressed="${!dayOff}">今天</button><button data-act="dayoff" data-v="1" aria-pressed="${!!dayOff}">明天</button></span><span class="hintr">点一顿可以换</span></div>`;
+  if (!w) return h + `<p class="soon">${key === thisWeek() ? "这周" : "下周"}菜单还没排，在电脑上的厨房账本里排一下。</p>`;
+  if (offOf(key, di)) return h + `<p class="soon">${word}不排，自己看着吃。</p>`;
   const d = w.days[di] || {};
-  let h = "";
   for (const s of SLOTS){
     if (s.opt && !d[s.k]) continue;
     const e = d[s.k], r = e && store.byId[e.r], n = entryN(e);
     const name = e?.custom ? e.custom.name : r ? r.name : "没排";
     const extra = [e?.rice ? `米饭 ${e.rice} g` : "", e?.bread ? `恰巴塔 ${e.bread} g` : ""].filter(Boolean).join("　");
     const sub = [n.kcal ? `${r0(n.kcal)} kcal　蛋白 ${r0(n.p)} g` : "", extra].filter(Boolean).join("　");
-    const can = r && r.steps?.length && !e.custom;
-    h += `<${can ? "button" : "div"} class="meal"${can ? ` data-act="cook" data-id="${esc(r.id)}" data-n="1"` : ""}>
-      <span class="k">${s.name}</span><span class="m"><span class="one">${esc(name)}</span>${sub ? `<small class="one">${sub}</small>` : ""}</span><span class="go">${can ? "做 ›" : ""}</span></${can ? "button" : "div"}>`;
+    h += `<button class="meal" data-act="meal" data-k="${s.k}">
+      <span class="k">${s.name}</span><span class="m"><span class="one${name === "没排" ? " none" : ""}">${esc(name)}</span>${sub ? `<small class="one">${sub}</small>` : ""}</span><span class="go">›</span></button>`;
   }
-  const { cook, prep, morning } = tonightTodo(t);
+  const { cook, prep, morning } = dayOff ? { cook:[], prep:[], morning:[] } : tonightTodo(t);
   const when = x => x === addDays(t, 1) ? "明天" : x === addDays(t, 2) ? "后天" : DAYS[dow(x)];
   const todo = [
     ...cook.map(x => ({ r:x.r, n:x.n, txt:`做好${when(x.eat)}起的午饭：${x.r.name}，${x.n} 份` })),
@@ -66,7 +66,7 @@ function todayHtml(t, di){
     h += `<div class="lbl">今晚要做</div>` + todo.map(x => `<button class="prep" data-act="cook" data-id="${esc(x.r.id)}" data-n="${x.n || 1}"><i></i><span class="one">${esc(x.txt)}</span><span class="go">›</span></button>`).join("");
   }
   const dn = dayN(d);
-  h += `<div class="sum">今天合计　约 ${r0(dn.kcal)} / ${DAY.kcal} kcal　蛋白 ${r0(dn.p)} g</div>`;
+  h += `<div class="sum">${word}合计　约 ${r0(dn.kcal)} / ${DAY.kcal} kcal　蛋白 ${r0(dn.p)} g</div>`;
   return h;
 }
 
@@ -181,12 +181,64 @@ function onCookClick(ev){
   }
 }
 
+
+/* ---------- 换一顿 ---------- */
+const slotOf = k => SLOTS.find(s => s.k === k);
+function cellNow(create){
+  const t = addDays(today(), dayOff), key = mondayOf(t), w = week(key, create);
+  return w ? { t, d: w.days[dow(t)] || (w.days[dow(t)] = {}) } : null;
+}
+function ensureSwap(){
+  if (swapEl) return;
+  swapEl = document.createElement("div");
+  swapEl.className = "sheet"; swapEl.hidden = true;
+  document.querySelector(".app").appendChild(swapEl);
+  swapEl.addEventListener("click", onSwap);
+}
+function openSwap(k){ swapK = k; ensureSwap(); swapEl.hidden = false; drawSwap(); }
+function closeSwap(){ if (swapEl) swapEl.hidden = true; }
+function drawSwap(){
+  const c = cellNow(false); if (!c) return closeSwap();
+  const s = slotOf(swapK), e = c.d[swapK], r = e && !e.custom && store.byId[e.r];
+  const cur = e?.custom ? e.custom.name : r ? r.name : "没排";
+  // 常排在这一顿的菜，家里有料的排前面
+  const cand = store.recipes.filter(x => x.slot === s.name && x.id !== r?.id)
+    .map(x => ({ x, n: entryN(entryFor(x, swapK, {})), home: (x.ing || []).filter(i => invLeft(i.n, c.t) > 0).length }))
+    .sort((a, b) => b.home - a.home || (a.x.order ?? 999) - (b.x.order ?? 999));
+  swapEl.innerHTML = `<div class="panel swap" role="dialog" aria-label="换${s.name}">
+    <div class="ph"><span class="one">${dayOff ? "明天" : "今天"}${s.name}　${esc(cur)}</span><button data-s="x">收起</button></div>
+    ${r && r.steps?.length ? `<button class="sw-go" data-s="cook" data-id="${esc(r.id)}">开始做 ›</button>` : ""}
+    <div class="sw-list">
+      <div class="rsub">换成</div>
+      ${cand.map(o => `<button class="sw" data-s="r" data-id="${esc(o.x.id)}"><span class="one">${esc(o.x.name)}</span><span class="sw-n">${o.home ? `<em>家里有料</em>` : ""}${r0(o.n.kcal)} kcal　蛋白 ${r0(o.n.p)} g</span></button>`).join("") || `<p class="hint">没有别的${s.name}可换。</p>`}
+      ${s.opt ? "" : `<div class="rsub">不做了</div>${["mealdeal","eatout","custom"].map(k2 => `<button class="sw" data-s="sp" data-v="${k2}"><span class="one">${esc(SPECIAL[k2].label)}</span><span class="sw-n">约 ${r0(SPECIAL[k2].presets[0].kcal)} kcal</span></button>`).join("")}`}
+      ${e ? `<button class="sw clear" data-s="clear"><span>清空这一顿</span></button>` : ""}
+    </div>
+  </div>`;
+}
+function onSwap(ev){
+  if (ev.target === swapEl) return closeSwap();
+  const b = ev.target.closest("[data-s]"); if (!b) return;
+  const a = b.dataset.s;
+  if (a === "x") return closeSwap();
+  if (a === "cook"){ closeSwap(); return openCook(b.dataset.id, 1); }
+  const c = cellNow(true), k = swapK, prev = c.d[k] || {};
+  if (prev.custom?.paid){ toastFn("这一顿已经记过账，先在电脑上撤销再换"); return; }
+  if (a === "clear") delete c.d[k];
+  else if (a === "sp"){ const kind = b.dataset.v; c.d[k] = { custom: { kind, ...SPECIAL[kind].presets[0] }, rice: 0, lock: true }; }
+  else if (a === "r"){ const r = store.byId[b.dataset.id]; if (!r) return; c.d[k] = entryFor(r, k, { lock: true }); }
+  saveDoc("menu"); closeSwap(); draw();
+  toastFn(a === "clear" ? "清空了" : "换好了，采购清单会跟着变");
+}
+
 /* ---------- 点击 ---------- */
 function onClick(ev){
   const b = ev.target.closest("[data-act]"); if (!b || !root.contains(b)) return;
   const a = b.dataset.act;
   if (a === "seg"){ seg = b.dataset.v; draw(); root.scrollTop = 0; return; }
   if (a === "cook") return openCook(b.dataset.id, b.dataset.n);
+  if (a === "dayoff"){ dayOff = +b.dataset.v; draw(); return; }
+  if (a === "meal") return openSwap(b.dataset.k);
   if (a === "buy"){
     const sh = store.docs.shop; sh.bought ||= {}; const k = b.dataset.k;
     if (sh.bought[k]) delete sh.bought[k]; else { sh.bought[k] = 1; popKey = k; }
@@ -200,5 +252,5 @@ function onClick(ev){
 }
 
 export function renderFood(view){ onPage = true; root = view; root.onclick = onClick; draw(); }
-export function leaveFood(){ onPage = false; if (root && root.onclick === onClick) root.onclick = null; closeCook(); }
+export function leaveFood(){ onPage = false; if (root && root.onclick === onClick) root.onclick = null; closeCook(); closeSwap(); }
 export function redrawFood(){ if (onPage) draw(); }

@@ -152,6 +152,18 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 .dots i.on{background:var(--fg)}
 
 
+.dayrow{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+.hintr{font-family:var(--ui);font-size:11px;color:var(--mu);letter-spacing:.06em}
+.meal .m .none{color:var(--mu)}
+.panel.swap{max-height:78%;grid-template-rows:auto auto minmax(0,1fr)}
+.sw-list{overflow-y:auto;display:grid;align-content:start;min-height:0;margin:0 -4px;padding:0 4px}
+.sw-go{background:var(--fg);color:var(--bg);border-radius:999px;padding:11px 0;font-size:14px;letter-spacing:.1em}
+.sw{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:11px 0;border-bottom:1px solid var(--ln);text-align:left;min-width:0}
+.sw .one{flex:1;min-width:0;font-family:var(--serif);font-size:15px}
+.sw-n{font-size:11px;color:var(--mu);white-space:nowrap;font-variant-numeric:tabular-nums}
+.sw-n em{font-style:normal;color:var(--ac);margin-right:8px}
+.sw.clear span{font-family:var(--ui);font-size:13px;color:var(--mu)}
+
 /* 记账 */
 .left{font-size:44px;margin-top:22px;line-height:1.1;font-variant-numeric:tabular-nums}
 .leftsub{font-family:var(--ui);font-size:12px;color:var(--mu);letter-spacing:.06em;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
