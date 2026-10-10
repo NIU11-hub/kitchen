@@ -155,8 +155,32 @@ const sky = (() => {
   const drops = Array.from({length:80}, () => ({x:R(0,1),y:R(0,1),l:R(10,22),v:R(.55,.9)}));
   const motes = Array.from({length:16}, () => ({x:R(.3,1),y:R(0,.7),r:R(2,7),v:R(.004,.012),p:R(0,6.28)}));
   const stars = Array.from({length:22}, () => ({x:R(0,1),y:R(0,.45),r:R(.8,1.8),p:R(0,6.28)}));
-  const clouds = Array.from({length:6}, (_,i) => { const far = i < 3; return {x:R(-.4,1.1), y:far?R(0,.12):R(.1,.3), s:far?R(.5,.7):R(.85,1.15), v:far?R(.009,.013):R(.018,.026), a:far?.55:1,
-    puffs:Array.from({length:7}, () => ({dx:R(-.55,.55),dy:R(-.1,.12),r:R(.16,.3)}))}; });
+  // 阴天的云雾：左右能无缝拼接的噪声纹理，两层不同速度往右流
+  function fogTexture(w, h, seed){
+    let s = seed; const rnd = () => (s = (s*16807) % 2147483647) / 2147483647;
+    const oct = [[8,4,.55],[16,8,.3],[32,16,.15]].map(([gx,gy,amp]) => ({gx,gy,amp,v:Array.from({length:gx*(gy+1)},rnd)}));
+    const sm = t => t*t*(3-2*t), [r,g,b] = [162,158,149];
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x2 = c.getContext("2d"), im = x2.createImageData(w,h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++){
+      let n = 0;
+      for (const o of oct){
+        const fx = x/w*o.gx, fy = y/h*o.gy, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = sm(fx-x0), ty = sm(fy-y0);
+        const at = (i,j) => o.v[j*o.gx + ((i % o.gx)+o.gx) % o.gx];
+        const a = at(x0,y0)+(at(x0+1,y0)-at(x0,y0))*tx, bb = at(x0,y0+1)+(at(x0+1,y0+1)-at(x0,y0+1))*tx;
+        n += (a+(bb-a)*ty)*o.amp;
+      }
+      const a = Math.min(1, Math.max(0, (n-.32)*2.6)) * Math.pow(Math.max(0, 1-y/h), 1.4);
+      const k = (y*w+x)*4; im.data[k] = r; im.data[k+1] = g; im.data[k+2] = b; im.data[k+3] = a*255;
+    }
+    x2.putImageData(im,0,0); return c;
+  }
+  const fog1 = fogTexture(192, 96, 12345), fog2 = fogTexture(160, 80, 777);
+  let o1 = 0, o2 = 0;
+  const layer = (tex, off, wMul, hMul, alpha) => {
+    const w = W*wMul, h = H*hMul, x = ((off*w) % w) - w;
+    ctx.globalAlpha = alpha; ctx.drawImage(tex, x, 0, w, h); ctx.drawImage(tex, x+w, 0, w, h); ctx.globalAlpha = 1;
+  };
   const mix = {sun:0, rain:0, cloud:0, night:0}, target = {sun:0, rain:0, cloud:0, night:0};
   let last = performance.now(), t = 0, running = false, visible = true;
 
@@ -180,10 +204,9 @@ const sky = (() => {
     if (cA > .01){
       const w = ctx.createLinearGradient(0,0,0,H*.65); w.addColorStop(0, rgba(P.cloud,.16*cA)); w.addColorStop(1, rgba(P.cloud,0));
       ctx.fillStyle = w; ctx.fillRect(0,0,W,H);
-      for (const c of clouds){ c.x += c.v*dt; if (c.x - c.s*.6 > 1.1) c.x = -c.s*.6;
-        for (const p of c.puffs){ const cx = (c.x+p.dx*c.s*.5)*W, cy = c.y*H+p.dy*c.s*W*.5, r = p.r*c.s*W*.55, g = ctx.createRadialGradient(cx,cy,0,cx,cy,r);
-          g.addColorStop(0, rgba(P.cloud,.28*c.a*cA)); g.addColorStop(.6, rgba(P.cloud,.14*c.a*cA)); g.addColorStop(1, rgba(P.cloud,0));
-          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx,cy,r,0,6.283); ctx.fill(); } }
+      o1 += dt*.012; o2 += dt*.02;
+      layer(fog1, o1, 2.2, .72, .85*cA);
+      layer(fog2, o2, 1.7, .56, .55*cA);
     }
     if (mix.rain > .01){
       ctx.strokeStyle = rgba(P.rain,.4*mix.rain); ctx.lineWidth = 1; ctx.lineCap = "round"; ctx.beginPath();
