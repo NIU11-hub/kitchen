@@ -1,5 +1,6 @@
 // 素日：手机上的个人 App。现在做好的是首页和底栏，训练 / 吃饭 / 记账三页接着做。
-import { SUPABASE_URL, SUPABASE_KEY } from "../config.js";
+import { docs, saveDoc, initDB, setHandlers } from "./db.js";
+import { renderTrain, leaveTrain, redrawTrain } from "./train.js";
 import { QUOTES } from "./quotes.js";
 
 const $ = s => document.querySelector(s);
@@ -224,29 +225,11 @@ const sky = (() => {
 })();
 
 /* ================= 体重 ================= */
-let sb = null;
-let body = LS.get("suri:body") || { weights:{} };
-body.weights ||= {};
+const W = () => docs.body.weights ||= {};
 
-async function initDB(){
-  if (!SUPABASE_URL || !SUPABASE_KEY) return;
-  try {
-    const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
-    sb = createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
-    const { data, error } = await sb.from("docs").select("data").eq("id","body").maybeSingle();
-    if (error) throw error;
-    if (data?.data){ body = data.data; body.weights ||= {}; LS.set("suri:body", body); if (tab === "home") paintWeight(); }
-  } catch(e) { console.error(e); }
-}
-async function saveBody(){
-  LS.set("suri:body", body);
-  if (!sb) return;
-  const { error } = await sb.from("docs").upsert({ id:"body", data:body, updated_at:new Date().toISOString() });
-  if (error) toast("没存到云端，先存在手机里了");
-}
 function avg7(){
   const now = new Date(); const vals = [];
-  for (let i = 0; i < 7; i++){ const d = new Date(now); d.setDate(d.getDate()-i); const v = body.weights[dkey(d)]; if (v) vals.push(v); }
+  for (let i = 0; i < 7; i++){ const d = new Date(now); d.setDate(d.getDate()-i); const v = W()[dkey(d)]; if (v) vals.push(v); }
   return vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
 }
 
@@ -300,7 +283,7 @@ function paintWeather(animate){
 
 function paintWeight(editing){
   const slot = $("#wslot"); if (!slot) return;
-  const today = body.weights[dkey(new Date())];
+  const today = W()[dkey(new Date())];
   if (editing){
     slot.innerHTML = `<form class="wform" id="wf"><span>体重</span><input id="win" inputmode="decimal" autocomplete="off" placeholder="${today || avg7()?.toFixed(1) || "76.0"}" value="${today || ""}" aria-label="今天的体重，公斤"><span>kg</span><button type="button" id="wcancel">取消</button><button type="submit" class="ok">好</button></form>`;
     const inp = $("#win"); inp.focus();
@@ -309,8 +292,8 @@ function paintWeight(editing){
       ev.preventDefault();
       const v = parseFloat(inp.value.replace(",", "."));
       if (!(v > 30 && v < 200)) { toast("输一个 30 到 200 之间的数"); return; }
-      body.weights[dkey(new Date())] = Math.round(v*10)/10;
-      paintWeight(); saveBody(); toast("记好了");
+      W()[dkey(new Date())] = Math.round(v*10)/10;
+      paintWeight(); saveDoc("body"); toast("记好了");
     };
     return;
   }
@@ -322,8 +305,7 @@ function paintWeight(editing){
 }
 
 const SOON = {
-  train: { ttl:"训练", meta:"下一步做", body:"这页下一步做：热身、热身组公斤数、逐组打勾、组间计时、换动作。" },
-  food:  { ttl:"吃饭", meta:"第三步做", body:`这页第三步做：今天三餐、做饭模式、采购清单。现在可以先用<a href="../">电脑版厨房账本</a>。` },
+  food:  { ttl:"吃饭", meta:"下一步做", body:`这页下一步做：今天三餐、做饭模式、采购清单。现在可以先用<a href="../">电脑版厨房账本</a>。` },
   money: { ttl:"记账", meta:"第四步做", body:`这页第四步做：本月还能花多少、记一笔、最近几笔。现在可以先用<a href="../">电脑版厨房账本</a>。` }
 };
 function renderSoon(k){
@@ -339,7 +321,8 @@ function go(k){
   document.querySelectorAll("#bar button").forEach(b => { if (b.dataset.tab === k) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
   sky.show(k === "home");
   view.scrollTop = 0;
-  if (k === "home") renderHome(); else renderSoon(k);
+  if (k !== "train") leaveTrain();
+  if (k === "home") renderHome(); else if (k === "train") renderTrain(view); else renderSoon(k);
 }
 document.querySelectorAll("#bar button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab !== tab) go(b.dataset.tab); }));
 
@@ -348,11 +331,12 @@ let lastDay = dkey(new Date());
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
   const d = dkey(new Date());
-  if (tab === "home" && (d !== lastDay)) renderHome();
+  if (d !== lastDay) { if (tab === "home") renderHome(); else if (tab === "train") redrawTrain(); }
   lastDay = d;
   refreshWeather(false);
 });
 
 go("home");
 refreshWeather(true);
+setHandlers({ error: () => toast("没存到云端，先存在手机里了"), load: () => { if (tab === "home") paintWeight(); else if (tab === "train") redrawTrain(); } });
 initDB();

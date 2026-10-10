@@ -48,6 +48,61 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 .soon{margin-top:40px;font-size:15px;line-height:1.9}
 .soon a{color:var(--fg);text-decoration:none;border-bottom:1px solid var(--ac)}
 
+
+/* 训练 */
+.metarow{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.link{font-family:var(--ui);font-size:12px;color:var(--mu);letter-spacing:.08em;white-space:nowrap}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px;font-family:var(--ui)}
+.chips button{font-size:12px;color:var(--mu);border:1px solid var(--edge);border-radius:999px;padding:6px 12px}
+.chips button[aria-pressed="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.lbl{font-family:var(--ui);font-size:11px;letter-spacing:.22em;color:var(--mu);margin:26px 0 8px}
+.wus{border-top:1px solid var(--ln)}
+.warmup{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--ln);font-size:14px;width:100%;text-align:left;min-height:50px}
+.warmup span:first-child{flex:1;min-width:0}
+.warmup.done span:first-child{color:var(--mu)}
+.tick{width:28px;height:28px;border-radius:50%;border:1px solid var(--edge);display:grid;place-items:center;flex:none;transition:background .2s,border-color .2s}
+.tick svg{width:12px;height:12px;opacity:0;transform:scale(.4);transition:opacity .2s,transform .2s}
+.done > .tick,.done .tick{background:#7F8F7A;border-color:#7F8F7A}
+.done > .tick svg,.done .tick svg{opacity:1;transform:none}
+.pop{animation:pop .42s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pop{40%{transform:scale(1.22)}}
+.ex{border-bottom:1px solid var(--ln)}
+.exh{display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;padding:14px 0 2px}
+.exh .n{font-size:17px;flex:1;min-width:0}
+.exh .s{font-family:var(--ui);font-size:12px;color:var(--mu);font-variant-numeric:tabular-nums;white-space:nowrap}
+.est{font-style:normal;font-size:10px;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:0 3px;margin-left:6px;vertical-align:1px}
+.ex.fin .exh .n{color:var(--mu)}
+.ex.fin .exh .s::before{content:"已完成　";color:#7F8F7A;letter-spacing:.1em}
+.last{font-family:var(--ui);font-size:11px;color:var(--mu);padding-bottom:12px;font-variant-numeric:tabular-nums}
+.exh + .exb{padding-top:10px}
+.exb{display:grid;grid-template-columns:minmax(0,1fr);padding-bottom:12px}
+.sub{font-family:var(--ui);font-size:11px;letter-spacing:.16em;color:var(--mu);margin-top:6px}
+.set{display:flex;align-items:center;gap:12px;padding:6px 0;font-family:var(--ui);font-size:15px;font-variant-numeric:tabular-nums;min-height:44px}
+.set .w{flex:1;min-width:0;text-align:left;display:flex;align-items:baseline;gap:10px;white-space:nowrap}
+.set .pen{font-size:11px;color:var(--mu);letter-spacing:.08em}
+.set.warm{color:var(--mu);font-size:13px}
+.set.warm .w{cursor:default}
+.set.done .w{opacity:.45}
+.ed{display:flex;align-items:center;gap:6px;padding:6px 0 10px;font-family:var(--ui);font-size:12px;color:var(--mu);white-space:nowrap}
+.ed b{font-weight:400;color:var(--fg);font-size:14px;min-width:3.4em;text-align:center;font-variant-numeric:tabular-nums}
+.ed button{width:30px;height:30px;border-radius:50%;border:1px solid var(--edge);color:var(--fg);font-size:16px;line-height:1;flex:none}
+.ed span:nth-of-type(2){margin-left:auto}
+.swapbtn{justify-self:end;margin-top:6px}
+.alt{display:grid;margin-top:8px;border-top:1px dashed var(--ln)}
+.alt .h{font-family:var(--ui);font-size:11px;letter-spacing:.16em;color:var(--mu);padding:10px 0 4px}
+.alt button{display:flex;justify-content:space-between;align-items:baseline;gap:12px;width:100%;text-align:left;padding:8px 0;font-size:14px;min-height:40px}
+.alt button span:last-child{font-family:var(--ui);font-size:12px;color:var(--mu);font-variant-numeric:tabular-nums;white-space:nowrap}
+.timer{position:relative;display:flex;align-items:center;gap:14px;padding:10px 22px;border-top:1px solid var(--ln);background:var(--soft);font-family:var(--ui);font-size:13px}
+.timer svg{width:44px;height:44px;flex:none}
+.timer circle{fill:none;stroke-width:3}
+.timer .bg{stroke:var(--ln)}
+.timer .fg{stroke:var(--ac);stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}
+.timer .tt{flex:1;min-width:0;display:grid}
+.timer .tt b{font-family:var(--serif);font-weight:400;font-size:20px;font-variant-numeric:tabular-nums;line-height:1.2}
+.timer .tt small{color:var(--mu);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.timer button{font-size:12px;color:var(--mu);border:1px solid var(--edge);border-radius:999px;padding:5px 12px;flex:none}
+.timer.end .tt b{color:var(--ac)}
+
 /* 底栏 */
 .bar{position:relative;display:grid;grid-template-columns:repeat(4,1fr);padding:16px 22px calc(env(safe-area-inset-bottom,0px) + 14px);font-family:var(--ui);background:var(--bg)}
 .bar button{font-size:12px;color:var(--mu);letter-spacing:.12em;position:relative;padding:4px 0}
