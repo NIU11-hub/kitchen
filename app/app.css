@@ -220,6 +220,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 .rline i{width:6px;height:6px;background:var(--ac);flex:none}
 .rline .one{flex:1;min-width:0}
 .rline em{font-style:normal;color:var(--mu)}
+.rline.dim{color:var(--mu)}
+.rline.dim i{background:var(--edge)}
 .rline + .weigh,#rslot:not(:empty) + #wslot .weigh{margin-top:6px}
 .ritem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--ln);font-size:14px;min-width:0}
 .ritem .rt{flex:1;min-width:0;font-family:var(--serif);font-size:15px;color:var(--fg)}

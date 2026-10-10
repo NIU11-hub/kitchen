@@ -342,7 +342,7 @@ document.addEventListener("visibilitychange", () => {
 view.addEventListener("click", e => { if (e.target.closest("[data-remind]")) openReminders(); });
 loadReminders(() => { if (tab === "home") paintRemind(); });
 /* 有新版本就自动换：GitHub Pages 会把网页缓存 10 分钟，这里绕过去 */
-const VERSION = "20261010i";
+const VERSION = "20261010j";
 async function checkUpdate(){
   try {
     const r = await fetch(new URL("version.json", import.meta.url).href.split("?")[0] + "?t=" + Date.now(), { cache:"no-store" });

@@ -29,8 +29,10 @@ export async function loadReminders(cb){
 
 // 首页那一行（只数还没加的）
 export function remindLine(){
-  const n = pending().length;
-  return n ? `<button class="rline" data-remind="open"><i></i><span class="one">Claude 给你 ${n} 条提醒</span><em aria-hidden="true">›</em></button>` : "";
+  const n = pending().length, now = Date.now();
+  if (n) return `<button class="rline" data-remind="open"><i></i><span class="one">Claude 给你 ${n} 条提醒</span><em aria-hidden="true">›</em></button>`;
+  const r = items.filter(x => added()[x.id] && now - added()[x.id] < 864e5).length;
+  return r ? `<button class="rline dim" data-remind="open"><i></i><span class="one">提醒　今天加过 ${r} 条</span><em aria-hidden="true">›</em></button>` : "";
 }
 
 function line(x){
