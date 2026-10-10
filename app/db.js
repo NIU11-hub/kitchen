@@ -1,8 +1,8 @@
 // 数据：先存手机里，再同步到和厨房账本同一个 Supabase（docs 表，id 是 body / train）
 import { SUPABASE_URL, SUPABASE_KEY } from "../config.js";
 
-const IDS = ["body", "train", "remind"];
-const DEFAULTS = { body: { weights:{} }, train: { log:{} }, remind: { added:{} } };
+const IDS = ["body", "train"];
+const DEFAULTS = { body: { weights:{} }, train: { log:{} } };
 const key = id => "suri:" + id;
 const load = id => { try { return JSON.parse(localStorage.getItem(key(id))); } catch(e) { return null; } };
 const keep = id => { try { localStorage.setItem(key(id), JSON.stringify(docs[id])); } catch(e) {} };

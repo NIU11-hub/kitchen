@@ -1,7 +1,6 @@
 // 素日：手机上的个人 App。现在做好的是首页和底栏，训练 / 吃饭 / 记账三页接着做。
 import { docs, saveDoc, initDB, setHandlers } from "./db.js";
 import { renderTrain, leaveTrain, redrawTrain } from "./train.js";
-import { loadReminders, remindLine, openReminders } from "./remind.js";
 import { renderFood, leaveFood, redrawFood } from "./food.js";
 import { renderMoney, leaveMoney, redrawMoney } from "./money.js";
 import { initStore, onChange } from "../store.js";
@@ -269,14 +268,11 @@ function renderHome(){
         <div class="gym" id="wgym"></div>
       </div>
       <div class="quote">${q}</div>
-      <div id="rslot"></div>
       <div id="wslot"></div>
     </section>`;
   paintWeather(false);
-  paintRemind();
   paintWeight();
 }
-function paintRemind(){ const s = $("#rslot"); if (s) s.innerHTML = remindLine(); }
 
 function paintWeather(animate){
   if (!wx?.data) return;
@@ -336,13 +332,10 @@ document.addEventListener("visibilitychange", () => {
   if (d !== lastDay) { if (tab === "home") renderHome(); else if (tab === "train") redrawTrain(); else if (tab === "food") redrawFood(); else redrawMoney(); }
   lastDay = d;
   refreshWeather(false);
-  loadReminders();
 });
 
-view.addEventListener("click", e => { if (e.target.closest("[data-remind]")) openReminders(); });
-loadReminders(() => { if (tab === "home") paintRemind(); });
 /* 有新版本就自动换：GitHub Pages 会把网页缓存 10 分钟，这里绕过去 */
-const VERSION = "20261010j";
+const VERSION = "20261010k";
 async function checkUpdate(){
   try {
     const r = await fetch(new URL("version.json", import.meta.url).href.split("?")[0] + "?t=" + Date.now(), { cache:"no-store" });
@@ -360,7 +353,7 @@ checkUpdate();
 
 go("home");
 refreshWeather(true);
-setHandlers({ error: () => toast("没存到云端，先存在手机里了"), load: () => { if (tab === "home") { paintWeight(); paintRemind(); } else if (tab === "train") redrawTrain(); } });
+setHandlers({ error: () => toast("没存到云端，先存在手机里了"), load: () => { if (tab === "home") paintWeight(); else if (tab === "train") redrawTrain(); } });
 initDB();
 // 厨房账本的数据（菜单、食谱、采购、记账），吃饭和记账两页用
 const redrawKitchen = () => { redrawFood(); redrawMoney(); };
