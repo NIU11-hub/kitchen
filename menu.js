@@ -4,7 +4,7 @@ import { DAY, SLOTS, SLOT_BY_NAME, DAYS, CATS, RICE, BREAD, BF, SPECIAL, shopNam
 import { $, esc, r0, f2, money, today, addDays, mondayOf, dow, fmtMD, toast, modal } from "./util.js";
 import { actions, changes, ui } from "./ui.js";
 import { addEntry, removeEntry } from "./ledger.js";
-import { boughtFor, invLeft, invName, keepOf } from "./shop.js";
+import { boughtFor, invLeft, invName, keepOf, isFrozen } from "./shop.js";
 
 export const M = () => store.docs.menu;
 const save = () => saveDoc("menu");
@@ -105,7 +105,7 @@ function stockScore(r) {
   let sc = 0;
   for (const i of r.ing || []) {
     const x = stockKey(i); if (!x || !(STOCK[x.k] >= 30)) continue;
-    const d = keepOf(x.k).days; sc += d && d <= 10 ? 2 : 1;
+    const d = isFrozen(x.k) ? 0 : keepOf(x.k).days; sc += d && d <= 10 ? 2 : 1;
   }
   return sc;
 }
@@ -288,7 +288,16 @@ export function tonightTodo(t = today()) {
   const next = cookOn(tm);
   const prep = next.filter(x => x.r.prep?.when === "前一晚" && uniq(x));
   const morning = next.filter(x => x.r.prep?.when === "当天早上" && uniq(x));
-  return { cook, prep, morning };
+  // 明天要做的菜用到冷冻的肉：今晚拿到冷藏化冻
+  const need = {};
+  for (const x of next) for (const i of x.r.ing || []) {
+    const sn = shopName(i.n); if (!sn) continue; const n = invName(sn.n);
+    if (!isFrozen(n) || !(invLeft(n, tm) > 0)) continue;
+    const g = (i.g || 0) * sn.f / (x.r.base || 1) * (x.n || 1);
+    need[n] = need[n] || { n, g: 0, r: x.r }; need[n].g += g;
+  }
+  const thaw = Object.values(need).map(z => ({ ...z, g: Math.min(z.g, invLeft(z.n, tm)) }));
+  return { cook, prep, morning, thaw };
 }
 
 /* ---------- 菜单页 ---------- */

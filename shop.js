@@ -36,9 +36,15 @@ export function invLeft(n, before) {
 // 买回来一批：先算出这样东西现在还剩多少，再加上新买的，从 from 那天重新算
 export function addInv(list, from) {
   const inv = S().inv;
-  for (const [n0, g] of list) { const n = invName(n0); const left = inv[n] ? invLeft(n, from) : 0; inv[n] = { g: Math.round(left + (+g || 0)), from }; }
+  // 第三项写 1 表示放在冷冻，写 0 表示拿出来了；不写就沿用原来的
+  for (const [n0, g, fz] of list) {
+    const n = invName(n0), old = inv[n], left = old ? invLeft(n, from) : 0;
+    const frozen = fz == null ? !!old?.frozen : !!+fz;
+    inv[n] = { g: Math.round(left + (+g || 0)), from, ...(frozen ? { frozen: true } : {}) };
+  }
   save();
 }
+export const isFrozen = n => !!S().inv[invName(n)]?.frozen;
 // 按冰箱照片重新盘点：旧的库存清掉，换成这一份
 export function setInv(list, from) { S().inv = {}; addInv(list, from); }
 const save = () => saveDoc("shop");
@@ -187,9 +193,10 @@ function invCard() {
   const rows = Object.keys(inv).map(n => ({ n, left: invLeft(n, t) })).sort((a, b) => b.left - a.left);
   if (!rows.length) return "";
   return `<section class="card mtop"><h3>家里的库存<small class="hint"> · 按菜单吃到今天还剩的</small></h3>
-    <div class="invl">${rows.map(x => `<div class="inv ${x.left < 1 ? "done" : ""}"><span>${esc(x.n)}</span><span class="num">${x.left < 1 ? "吃完了" : fmtG(x.left)}</span><button class="x" data-act="invdel" data-n="${esc(x.n)}" aria-label="清掉${esc(x.n)}">×</button></div>`).join("")}</div>
-    <p class="hint">你发小票给我时我顺手记进来。菜单改了，剩多少会跟着变。</p></section>`;
+    <div class="invl">${rows.map(x => `<div class="inv ${x.left < 1 ? "done" : ""}"><span>${esc(x.n)} <button class="linkbtn" data-act="invfz" data-n="${esc(x.n)}" title="点一下切换冷冻/冷藏">${inv[x.n].frozen ? "冷冻" : "冷藏"}</button></span><span class="num">${x.left < 1 ? "吃完了" : fmtG(x.left)}</span><button class="x" data-act="invdel" data-n="${esc(x.n)}" aria-label="清掉${esc(x.n)}">×</button></div>`).join("")}</div>
+    <p class="hint">你发小票给我时我顺手记进来。菜单改了，剩多少会跟着变。冷冻的肉，前一晚「今晚要做」会提醒拿出来化冻。</p></section>`;
 }
+actions.invfz = el => { const it = S().inv[el.dataset.n]; if (!it) return; if (it.frozen) delete it.frozen; else it.frozen = true; save(); ui.rerender(); };
 actions.invdel = el => { delete S().inv[el.dataset.n]; save(); ui.rerender(); };
 actions.swk = el => { sel = { ...(sel || {}), key: el.dataset.w, k: sel?.k || "mon" }; ui.rerender(); };
 actions.trip = el => { sel = { ...(sel || nextTripSel()), k: el.dataset.v }; ui.rerender(); };

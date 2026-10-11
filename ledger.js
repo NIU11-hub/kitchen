@@ -7,7 +7,7 @@ import { generate, week, entryFor } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
-const INBOX_V = 20261012;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
+const INBOX_V = 20261013;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {

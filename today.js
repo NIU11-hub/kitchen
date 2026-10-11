@@ -53,14 +53,15 @@ export function renderToday(el) {
 }
 // 今晚要做：今晚做好的午饭、要提前腌/泡的
 function tonightCard(t) {
-  const { cook, prep, morning } = tonightTodo(t);
-  if (!cook.length && !prep.length && !morning.length) return "";
+  const { cook, prep, morning, thaw } = tonightTodo(t);
+  if (!cook.length && !prep.length && !morning.length && !thaw.length) return "";
   const SN = Object.fromEntries(SLOTS.map(s => [s.k, s.name]));
   const when = d => d === addDays(t, 1) ? "明天" : d === addDays(t, 2) ? "后天" : fmtMD(d);
   const link = r => `<a href="#r-${esc(r.id)}" data-act="open" data-id="${esc(r.id)}"><span class="dot cat-${esc(r.cat)}"></span>${esc(r.name)}</a>`;
   const li = [
     ...cook.map(x => `<li>做好${when(x.eat)}起的午饭：${link(x.r)}，做 ${x.n} 份${x.n > 1 ? "，分盒冷藏" : ""}</li>`),
     ...prep.map(x => `<li>${link(x.r)}（${when(x.eat)}${SN[x.k]}${x.batch ? "，明晚做" : ""}）：${esc(x.r.prep.t)}${x.r.prep.mins ? `，约 ${x.r.prep.mins} 分钟` : ""}</li>`),
+    ...thaw.map(x => `<li>把冷冻的${esc(x.n)}拿约 ${Math.round(x.g / 10) * 10 || x.g}g 到冷藏化冻（明天做${link(x.r)}）</li>`),
     ...morning.map(x => `<li>明早出门前：${link(x.r)}（${when(x.eat)}${SN[x.k]}）：${esc(x.r.prep.t)}</li>`),
   ];
   return `<section class="card mtop"><div class="cardh"><h3>今晚要做</h3></div><ul class="todo">${li.join("")}</ul></section>`;

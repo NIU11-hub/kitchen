@@ -55,11 +55,12 @@ function todayHtml(t){
     h += `<button class="meal" data-act="meal" data-k="${s.k}">
       <span class="k">${s.name}</span><span class="m"><span class="one${name === "没排" ? " none" : ""}">${esc(name)}</span>${sub ? `<small class="one">${sub}</small>` : ""}</span><span class="go">›</span></button>`;
   }
-  const { cook, prep, morning } = dayOff ? { cook:[], prep:[], morning:[] } : tonightTodo(t);
+  const { cook, prep, morning, thaw } = dayOff ? { cook:[], prep:[], morning:[], thaw:[] } : tonightTodo(t);
   const when = x => x === addDays(t, 1) ? "明天" : x === addDays(t, 2) ? "后天" : DAYS[dow(x)];
   const todo = [
     ...cook.map(x => ({ r:x.r, n:x.n, txt:`做好${when(x.eat)}起的午饭：${x.r.name}，${x.n} 份` })),
     ...prep.map(x => ({ r:x.r, n:1, txt:`${x.r.name}：${x.r.prep.t}` })),
+    ...thaw.map(x => ({ r:x.r, n:1, txt:`化冻　${x.n}约 ${Math.round(x.g / 10) * 10 || x.g} g 拿到冷藏` })),
     ...morning.map(x => ({ r:x.r, n:1, txt:`明早出门前　${x.r.name}：${x.r.prep.t}` }))
   ];
   if (todo.length){
