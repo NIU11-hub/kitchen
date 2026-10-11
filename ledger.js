@@ -7,7 +7,7 @@ import { generate, week, entryFor } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
-const INBOX_V = 20261011;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
+const INBOX_V = 20261012;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
@@ -455,6 +455,8 @@ async function applyInboxOnce() {
     // invClear：把家里的库存整个清空（之后再按新的一批记）
     if (b.invClear) { store.docs.shop.inv = {}; saveDoc("shop"); cleared = true; }
     if (b.inv?.length) { (b.invSet ? setInv : addInv)(b.inv, b.invFrom || today()); inv += b.inv.length; }
+    // haveNot：囤货和调料快用完了，取消「家里还有」，采购清单会列出来
+    if (b.haveNot?.length) { const P = store.docs.shop.pantry = store.docs.shop.pantry || {}; for (const n of b.haveNot) delete P[n]; saveDoc("shop"); }
     if (b.have?.length) { const P = store.docs.shop.pantry = store.docs.shop.pantry || {}; for (const n of b.have) P[n] = 1; saveDoc("shop"); }
     for (const nm of b.pay || []) {
       const o = S.ones.find(z => !z.paid && z.n.toLowerCase().includes(String(nm).toLowerCase()));
