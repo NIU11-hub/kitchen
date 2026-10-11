@@ -7,7 +7,7 @@ import { generate, week, entryFor } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
-const INBOX_V = 20261007;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
+const INBOX_V = 20261011;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
@@ -442,7 +442,7 @@ async function applyInboxOnce() {
   const todo = (box.batches || []).filter(b => b.id && !S.inbox.includes(b.id) && !(+b.minV > INBOX_V));
   if (!todo.length) return;
   const snap = snapshot();
-  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0, regen = false, dropped = [];
+  let n = 0, sum = 0, paid = [], skipped = 0, inv = 0, regen = false, cleared = false, dropped = [];
   for (const b of todo) {
     // redo：先删掉这几张记过的小票（店|日期|总额），下面按新的分类重记
     for (const rc of b.redo || []) for (const x of L().E.filter(z => z.meta?.rc === String(rc).toLowerCase())) removeEntry(x.id, true);
@@ -452,6 +452,8 @@ async function applyInboxOnce() {
       n++; sum += x.amt;
     } }
     // 买回来的东西记进家里的库存；囤货类标「家里还有」
+    // invClear：把家里的库存整个清空（之后再按新的一批记）
+    if (b.invClear) { store.docs.shop.inv = {}; saveDoc("shop"); cleared = true; }
     if (b.inv?.length) { (b.invSet ? setInv : addInv)(b.inv, b.invFrom || today()); inv += b.inv.length; }
     if (b.have?.length) { const P = store.docs.shop.pantry = store.docs.shop.pantry || {}; for (const n of b.have) P[n] = 1; saveDoc("shop"); }
     for (const nm of b.pay || []) {
@@ -499,7 +501,7 @@ async function applyInboxOnce() {
   }
   save(); ui.rerender();
   const dr = dropped.length ? `「${dropped.join("、")}」不用付了，删掉了` : "";
-  if (!n && !paid.length) { if (dr) toast(dr, () => restoreSnap(snap)); else if (inv || regen) toast(`家里的库存更新了 ${inv} 样${regen ? "，菜单按库存重排了" : ""}`); return; }
+  if (!n && !paid.length) { if (dr) toast(dr, () => restoreSnap(snap)); else if (inv || regen) toast(`家里的库存更新了 ${inv} 样${regen ? "，菜单按库存重排了" : ""}`); else if (cleared) toast("家里的库存清空了"); return; }
   toast(`Claude 帮你记了 ${n} 笔 £${f2(sum)}${skipped ? `（${skipped} 张已经记过，跳过了）` : ""}${paid.length ? "，" + paid.join("、") + " 标成已付" : ""}${dr ? "；" + dr : ""}`, () => restoreSnap(snap));
 }
 

@@ -998,6 +998,12 @@
      }
     }
    ]
+  },
+  {
+   "id": "2026-10-11-invclear",
+   "minV": 20261011,
+   "receipts": [],
+   "invClear": true
   }
  ]
 }
