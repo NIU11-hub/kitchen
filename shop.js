@@ -193,7 +193,7 @@ function invCard() {
   const rows = Object.keys(inv).map(n => ({ n, left: invLeft(n, t) })).sort((a, b) => b.left - a.left);
   if (!rows.length) return "";
   return `<section class="card mtop"><h3>家里的库存<small class="hint"> · 按菜单吃到今天还剩的</small></h3>
-    <div class="invl">${rows.map(x => `<div class="inv ${x.left < 1 ? "done" : ""}"><span>${esc(x.n)} <button class="linkbtn" data-act="invfz" data-n="${esc(x.n)}" title="点一下切换冷冻/冷藏">${inv[x.n].frozen ? "冷冻" : "冷藏"}</button></span><span class="num">${x.left < 1 ? "吃完了" : fmtG(x.left)}</span><button class="x" data-act="invdel" data-n="${esc(x.n)}" aria-label="清掉${esc(x.n)}">×</button></div>`).join("")}</div>
+    <div class="invl">${rows.map(x => `<div class="inv ${x.left < 1 ? "done" : ""}"><span>${esc(x.n)}${inv[x.n].frozen || keepOf(x.n).days === 3 ? ` <button class="linkbtn" data-act="invfz" data-n="${esc(x.n)}" title="点一下切换冷冻/冷藏">${inv[x.n].frozen ? "冷冻" : "冷藏"}</button>` : ""}</span><span class="num">${x.left < 1 ? "吃完了" : fmtG(x.left)}</span><button class="x" data-act="invdel" data-n="${esc(x.n)}" aria-label="清掉${esc(x.n)}">×</button></div>`).join("")}</div>
     <p class="hint">你发小票给我时我顺手记进来。菜单改了，剩多少会跟着变。冷冻的肉，前一晚「今晚要做」会提醒拿出来化冻。</p></section>`;
 }
 actions.invfz = el => { const it = S().inv[el.dataset.n]; if (!it) return; if (it.frozen) delete it.frozen; else it.frozen = true; save(); ui.rerender(); };
