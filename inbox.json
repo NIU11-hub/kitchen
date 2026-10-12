@@ -1643,6 +1643,24 @@
      1
     ]
    ]
+  },
+  {
+   "id": "2026-10-12-beef",
+   "receipts": [],
+   "set": [
+    {
+     "d": "2026-10-12",
+     "k": "d",
+     "r": "dy-double-pepper-beef",
+     "lock": true
+    },
+    {
+     "d": "2026-10-13",
+     "k": "l",
+     "r": "dy-double-pepper-beef",
+     "lock": true
+    }
+   ]
   }
  ]
 }
