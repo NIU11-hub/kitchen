@@ -1661,6 +1661,128 @@
      "lock": true
     }
    ]
+  },
+  {
+   "id": "2026-10-15-restart",
+   "minV": 20261013,
+   "receipts": [],
+   "invSet": true,
+   "invFrom": "2026-10-16",
+   "inv": [
+    [
+     "生虾仁",
+     400,
+     1
+    ],
+    [
+     "牛排（西冷）",
+     250,
+     1
+    ],
+    [
+     "去皮鸡腿肉",
+     100,
+     1
+    ]
+   ],
+   "set": [
+    {
+     "d": "2026-10-16",
+     "k": "b",
+     "r": "en-breakfast-bread",
+     "lock": true
+    },
+    {
+     "d": "2026-10-16",
+     "k": "l",
+     "r": "cl-pepper-chicken",
+     "lock": true,
+     "rice": 300
+    },
+    {
+     "d": "2026-10-16",
+     "k": "s",
+     "r": "post-workout",
+     "lock": true
+    },
+    {
+     "d": "2026-10-16",
+     "k": "d",
+     "r": "udon",
+     "lock": true,
+     "rice": 0
+    },
+    {
+     "d": "2026-10-16",
+     "k": "n",
+     "r": "bedtime-milk",
+     "lock": true
+    },
+    {
+     "d": "2026-10-17",
+     "k": "b",
+     "r": "dy-egg-ciabatta",
+     "lock": true
+    },
+    {
+     "d": "2026-10-17",
+     "k": "l",
+     "r": "dy-honey-butter-chicken",
+     "lock": true,
+     "rice": 0
+    },
+    {
+     "d": "2026-10-17",
+     "k": "s",
+     "r": "post-workout",
+     "lock": true
+    },
+    {
+     "d": "2026-10-17",
+     "k": "d",
+     "r": "dy-steak-dinner",
+     "lock": true,
+     "rice": 200
+    },
+    {
+     "d": "2026-10-17",
+     "k": "n",
+     "r": "bedtime-milk",
+     "lock": true
+    },
+    {
+     "d": "2026-10-18",
+     "k": "b",
+     "r": "en-breakfast-bread",
+     "lock": true
+    },
+    {
+     "d": "2026-10-18",
+     "k": "l",
+     "r": "dy-lazy-fried-rice",
+     "lock": true,
+     "rice": 0
+    },
+    {
+     "d": "2026-10-18",
+     "k": "s",
+     "r": "post-workout",
+     "lock": true
+    },
+    {
+     "d": "2026-10-18",
+     "k": "d",
+     "r": "dy-chicken-lurou",
+     "lock": true,
+     "rice": 0
+    },
+    {
+     "d": "2026-10-18",
+     "k": "n",
+     "r": "bedtime-milk",
+     "lock": true
+    }
+   ]
   }
  ]
 }
