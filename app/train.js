@@ -1,5 +1,5 @@
 // 训练页：热身、热身组、逐组打勾、改次数重量、换动作、组间计时、上次成绩、自动加重
-import { PLAN, START, BY_DAY, PICK, OLD_DAY, OLD_PICK } from "./plan.js";
+import { PLAN, START, SWITCH, BY_DAY, PICK, OLD_DAY, OLD_PICK } from "./plan.js";
 import { docs, saveDoc } from "./db.js";
 
 const pad = n => String(n).padStart(2,"0");
@@ -23,7 +23,7 @@ function weekInfo(d){
   return { wk, deload: wk === 4 };
 }
 // 新计划开始前还按旧的排；[单周, 双周] 按周数挑一个
-const isNew = d => dkey(d) >= START;
+const isNew = d => dkey(d) >= SWITCH;
 const dayMap = d => isNew(d) ? BY_DAY : OLD_DAY;
 const pickList = d => isNew(d) ? PICK : OLD_PICK;
 const even = wi => !wi.before && wi.wk % 2 === 0;
@@ -182,7 +182,7 @@ function draw(){
   const now = dayNow(), today = dkey(now), wi = weekInfo(now);
   if (viewDay !== today){ viewDay = today; sel = null; openIdx = null; editing = null; showAlt = {}; }
   const id = sid(), P = PLAN[id], L = resolve(P, wi), e = sess(false);
-  const wk = wi.before ? "周一开始新计划" : wi.deload ? "第 4 周　减量周" : `第 ${wi.wk} 周　${even(wi) ? "双周" : "单周"}`;
+  const wk = wi.before ? "周一开始第 1 周" : wi.deload ? "第 4 周　减量周" : `第 ${wi.wk} 周　${even(wi) ? "双周" : "单周"}`;
   let h = `<section class="page train">
     <div class="top"><i></i><span>${now.getMonth()+1}.${now.getDate()}　周${WEEK[now.getDay()]}</span><span class="r">${wk}</span></div>
     <div class="ttl">${P.name}</div>

@@ -5,6 +5,7 @@
 // bw: 自重或计时动作，做满了加 inc（默认 1），最多到 max（默认 12）。u: 次数的单位（米、秒）；each: 每侧。
 // 辅助动作同一个 id 共用记录：上周实际练到多少，这次就接着多少。
 export const START = "2026-10-19";   // 新计划第 1 周的周一
+export const SWITCH = "2026-10-16";  // 从这天起按新计划练（10-16 到 10-18 按单周先练）
 
 const UP = 2.5, LOW = 5, DB = 2;
 const RAMP = [[0,10],[.5,5],[.7,3],[.85,1]];
@@ -19,7 +20,7 @@ export const PLAN = {
     name: "上肢 A", mins: 60,
     warm: ["划船机　5 分钟", "弹力带肩外旋　2 × 15"],
     ex: [
-      { id:"bench", n:"卧推", w:90, r:5, s:3, rest:180, step:UP, drop:5, main:true, ramp:RAMP, from:START,
+      { id:"bench", n:"卧推", w:90, r:5, s:3, rest:180, step:UP, drop:5, main:true, ramp:RAMP, from:SWITCH,
         alt:[["史密斯卧推",80,6,3],["哑铃卧推",34,8,3]] },
       [ { id:"csdbrow", n:"胸托哑铃划船", w:26, r:10, s:3, rest:120, step:DB, drop:DB*2, alt:[["器械划船",70,10,3],["单臂哑铃划船",30,10,3]] },
         { id:"pulldown", n:"高位下拉", w:60, r:10, s:3, rest:120, step:LOW, drop:5, alt:[["器械下拉",60,10,3]] } ],
@@ -35,7 +36,7 @@ export const PLAN = {
     name: "下肢 A　深蹲", mins: 60,
     warm: ["单车　5 分钟", "徒手深蹲　2 × 10"],
     ex: [
-      { id:"squat", n:"深蹲", w:115, r:5, s:3, rest:180, step:LOW, drop:5, main:true, ramp:RAMP, from:START,
+      { id:"squat", n:"深蹲", w:115, r:5, s:3, rest:180, step:LOW, drop:5, main:true, ramp:RAMP, from:SWITCH,
         alt:[["史密斯深蹲",100,6,3],["哈克深蹲",90,8,3]] },
       [ { id:"legpress", n:"腿举", w:160, r:10, s:3, rest:120, step:10, drop:10, alt:[["哈克深蹲",90,10,3]] },
         { id:"rdl", n:"罗马尼亚硬拉", w:80, r:8, s:3, rest:150, step:LOW, drop:5, alt:[["哑铃罗马尼亚硬拉",28,10,3]] } ],
@@ -66,7 +67,7 @@ export const PLAN = {
     name: "下肢 B　硬拉", mins: 60,
     warm: ["单车　5 分钟", "臀桥　2 × 12"],
     ex: [
-      { id:"dead", n:"硬拉", w:120, r:5, s:3, rest:180, step:LOW, drop:5, main:true, ramp:[[.5,5],[.7,3],[.85,1]], from:START,
+      { id:"dead", n:"硬拉", w:120, r:5, s:3, rest:180, step:LOW, drop:5, main:true, ramp:[[.5,5],[.7,3],[.85,1]], from:SWITCH,
         alt:[["六角杠硬拉",125,5,3]] },
       [ { id:"bss", n:"保加利亚分腿蹲", w:14, r:8, s:3, rest:90, step:DB, drop:DB*2, alt:[["哑铃箭步蹲",14,10,3]] },
         { id:"hipthrust", n:"杠铃臀推", w:90, r:10, s:3, rest:120, step:LOW, drop:5, alt:[["器械臀推",80,12,3]] } ],
