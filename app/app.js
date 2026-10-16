@@ -320,7 +320,7 @@ function go(k){
   if (k !== "train") leaveTrain();
   if (k !== "food") leaveFood();
   if (k !== "money") leaveMoney();
-  if (k === "home") renderHome(); else if (k === "train") renderTrain(view); else if (k === "food") renderFood(view); else renderMoney(view, { toast });
+  if (k === "home") renderHome(); else if (k === "train") renderTrain(view, { toast }); else if (k === "food") renderFood(view); else renderMoney(view, { toast });
 }
 document.querySelectorAll("#bar button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab !== tab) go(b.dataset.tab); }));
 
@@ -335,7 +335,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 /* 有新版本就自动换：GitHub Pages 会把网页缓存 10 分钟，这里绕过去 */
-const VERSION = "20261011d";
+const VERSION = "20261016a";
 async function checkUpdate(){
   try {
     const r = await fetch(new URL("version.json", import.meta.url).href.split("?")[0] + "?t=" + Date.now(), { cache:"no-store" });

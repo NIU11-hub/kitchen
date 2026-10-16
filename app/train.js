@@ -1,5 +1,5 @@
 // 训练页：热身、热身组、逐组打勾、改次数重量、换动作、组间计时、上次成绩、自动加重
-import { PLAN, START, BY_DAY, PICK } from "./plan.js";
+import { PLAN, START, BY_DAY, PICK, OLD_DAY, OLD_PICK } from "./plan.js";
 import { docs, saveDoc } from "./db.js";
 
 const pad = n => String(n).padStart(2,"0");
@@ -9,6 +9,7 @@ const CHECK = '<svg viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5 5.6
 const round = (v, step) => step ? Math.round(v/step)*step : v;
 const num = w => Number.isInteger(w) ? String(w) : w.toFixed(1);
 const fmtW = w => w === 0 ? "自重" : `${num(w)} kg`;
+const rep = (ex, r) => `${r}${ex.u ? " " + ex.u : ""}${ex.each ? " 每侧" : ""}`;
 const mmss = s => `${Math.floor(s/60)}:${pad(Math.floor(s%60))}`;
 const clone = o => JSON.parse(JSON.stringify(o));
 
@@ -21,6 +22,12 @@ function weekInfo(d){
   const wk = Math.floor(days/7) % 4 + 1;
   return { wk, deload: wk === 4 };
 }
+// 新计划开始前还按旧的排；[单周, 双周] 按周数挑一个
+const isNew = d => dkey(d) >= START;
+const dayMap = d => isNew(d) ? BY_DAY : OLD_DAY;
+const pickList = d => isNew(d) ? PICK : OLD_PICK;
+const even = wi => !wi.before && wi.wk % 2 === 0;
+const resolve = (P, wi) => P.ex?.map(e => Array.isArray(e) ? e[even(wi) ? 1 : 0] : e);
 
 /* ---------- 历史和目标 ---------- */
 function perf(x){
@@ -28,24 +35,26 @@ function perf(x){
   const w = done.length ? Math.min(...done.map(s => s.w)) : x.t.w;
   return { w, done:done.length, reps:done.map(s => s.r), full: done.length >= x.t.s && done.every(s => s.r >= x.t.r) };
 }
-function hist(exId, today, withDeload){
+function hist(exId, today, withDeload, from){
   return Object.values(docs.train.log)
-    .filter(e => e.date < today && e.ex?.[exId] && !e.ex[exId].swap && (withDeload || !e.ex[exId].t.deload) && perf(e.ex[exId]).done > 0)
+    .filter(e => e.date < today && (!from || e.date >= from) && e.ex?.[exId] && !e.ex[exId].swap && (withDeload || !e.ex[exId].t.deload) && perf(e.ex[exId]).done > 0)
     .sort((a,b) => a.date < b.date ? 1 : -1)
     .map(e => ({ date:e.date, x:e.ex[exId] }));
 }
 function target(ex, today, wi){
-  const h = hist(ex.id, today, false);
+  const h = hist(ex.id, today, false, ex.from);
   let w = ex.w, r = ex.r, s = ex.s;
   const est = !ex.bw && !ex.main && h.length === 0;
   if (h.length){
-    const a = perf(h[0].x);
+    // 连续两次同重量（自重看次数）都做满才加；连续两次同重量都没做满退一档
+    const a = perf(h[0].x), b = h[1] ? perf(h[1].x) : null;
     r = h[0].x.t.r;
-    if (ex.bw){ w = 0; if (a.full) r = Math.min(r + 1, 12); }
-    else if (a.full) w = a.w + ex.step;
+    const twice = b && b.full && (ex.bw ? h[1].x.t.r === r : b.w === a.w);
+    if (ex.bw){ w = 0; if (a.full && twice) r = Math.min(r + (ex.inc || 1), ex.max || 12); }
+    else if (a.full){ w = twice ? a.w + ex.step : a.w; }
     else {
       w = a.w;
-      if (h[1]){ const b = perf(h[1].x); if (!b.full && b.w === a.w) w = Math.max(ex.step, a.w - ex.drop); }
+      if (b && !b.full && b.w === a.w) w = Math.max(ex.step, a.w - ex.drop);
     }
   }
   if (!ex.bw) w = round(w, ex.step);
@@ -53,10 +62,10 @@ function target(ex, today, wi){
   return { w, r, s, est, deload:wi.deload };
 }
 function lastLine(ex, today){
-  const h = hist(ex.id, today, true);
+  const h = hist(ex.id, today, true, ex.from);
   if (!h.length) return "";
   const x = h[0].x, a = perf(x);
-  return a.full ? `上次 ${fmtW(a.w)} × ${x.t.r} × ${a.done}，全做满` : `上次 ${fmtW(a.w)}：${a.reps.join("、")}`;
+  return a.full ? `上次 ${fmtW(a.w)} × ${rep(ex, x.t.r)} × ${a.done}，全做满` : `上次 ${fmtW(a.w)}：${a.reps.join("、")}`;
 }
 const virt = t => ({ t:{ w:t.w, r:t.r, s:t.s, deload:t.deload }, sets:Array.from({length:t.s}, () => ({ w:t.w, r:t.r, done:false })), wd:{} });
 
@@ -107,11 +116,53 @@ function startTimer(sec, label){
 }
 function stopTimer(){ cancelAnimationFrame(tRaf); tRunning = false; if (timerEl) timerEl.hidden = true; }
 
+/* ---------- 复制记录（粘贴给 Claude 看） ---------- */
+function exMeta(){
+  const m = {};
+  for (const P of Object.values(PLAN)) for (const e of (P.ex || [])) for (const x of [].concat(e)) if (!m[x.id]) m[x.id] = x;
+  return m;
+}
+function weekText(){
+  const now = dayNow(), to = dkey(now), f = new Date(now); f.setDate(f.getDate() - 6);
+  const from = dkey(f), M = exMeta(), wfmt = w => w === 0 ? "自重" : num(w);
+  const out = [`素日训练记录　${from} 到 ${to}`];
+  const es = Object.values(docs.train.log).filter(e => e.date >= from && e.date <= to).sort((a,b) => a.date < b.date ? -1 : 1);
+  for (const e of es){
+    const [y,m,d] = e.date.split("-").map(Number), dt = new Date(y, m-1, d), P = PLAN[e.sid] || { name:e.sid };
+    const wi = weekInfo(dt), head = `${m}.${d} 周${WEEK[dt.getDay()]}　${P.name}${wi.before ? "" : `（第 ${wi.wk} 周）`}`;
+    if (P.cardio){ if (e.cardio) out.push("", `${head}：做了`); continue; }
+    const order = (P.ex || []).flatMap(x => [].concat(x).map(z => z.id));
+    const ids = Object.keys(e.ex || {}).sort((a,b) => order.indexOf(a) - order.indexOf(b));
+    const rows = [];
+    for (const id of ids){
+      const x = e.ex[id], done = x.sets.filter(s => s.done);
+      if (!done.length) continue;
+      const meta = M[id] || { n:id }, t = x.swap || x.t, nm = x.swap ? `${x.swap.n}（换的）` : meta.n;
+      rows.push(`${nm}：${done.map(s => `${wfmt(s.w)}×${s.r}`).join("、")}　目标 ${fmtW(t.w)} × ${rep(meta, t.r)} × ${t.s}${x.t.deload ? "，减量" : ""}`);
+    }
+    if (rows.length) out.push("", head, ...rows);
+  }
+  if (out.length === 1) out.push("", "这 7 天还没有记录");
+  return out.join("\n");
+}
+function copyWeek(){
+  const txt = weekText();
+  const ok = () => toastFn("复制好了，粘贴给 Claude 就行");
+  const fallback = () => {
+    const ta = document.createElement("textarea"); ta.value = txt; ta.setAttribute("readonly", ""); ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select(); ta.setSelectionRange(0, txt.length);
+    let r = false; try { r = document.execCommand("copy"); } catch(e) {}
+    ta.remove(); r ? ok() : toastFn("没复制成功，再点一次试试");
+  };
+  try { navigator.clipboard.writeText(txt).then(ok, fallback); } catch(e) { fallback(); }
+}
+
 /* ---------- 页面 ---------- */
-let root = null, sel = null, picking = false, openIdx = null, editing = null, showAlt = {}, popKey = null, viewDay = null;
+let root = null, toastFn = () => {}, sel = null, picking = false, openIdx = null, editing = null, showAlt = {}, popKey = null, viewDay = null;
 
 const dayNow = () => new Date();
-function sid(){ return sel || BY_DAY[dayNow().getDay()]; }
+function sid(){ const n = dayNow(); return sel || dayMap(n)[n.getDay()]; }
+const exs = () => resolve(PLAN[sid()], weekInfo(dayNow()));
 function sess(create){
   const today = dkey(dayNow()), k = `${today}|${sid()}`;
   let e = docs.train.log[k];
@@ -130,32 +181,33 @@ const dims = x => x.swap || x.t;
 function draw(){
   const now = dayNow(), today = dkey(now), wi = weekInfo(now);
   if (viewDay !== today){ viewDay = today; sel = null; openIdx = null; editing = null; showAlt = {}; }
-  const id = sid(), P = PLAN[id], e = sess(false);
-  const wk = wi.before ? "周一开始第 1 周" : wi.deload ? "第 4 周　减量周" : `第 ${wi.wk} 周 / 共 4 周`;
+  const id = sid(), P = PLAN[id], L = resolve(P, wi), e = sess(false);
+  const wk = wi.before ? "周一开始新计划" : wi.deload ? "第 4 周　减量周" : `第 ${wi.wk} 周　${even(wi) ? "双周" : "单周"}`;
   let h = `<section class="page train">
     <div class="top"><i></i><span>${now.getMonth()+1}.${now.getDate()}　周${WEEK[now.getDay()]}</span><span class="r">${wk}</span></div>
     <div class="ttl">${P.name}</div>
-    <div class="metarow"><span class="meta">${P.ex ? `约 ${P.mins} 分钟　${P.ex.length} 个动作` : id === "rest" ? "今天不练" : "做完打个勾"}</span><button class="link" data-act="pick">${picking ? "收起" : "练别的 ›"}</button></div>`;
-  if (picking) h += `<div class="chips">${PICK.map(k => `<button data-act="sel" data-sid="${k}"${k === id ? ' aria-pressed="true"' : ""}>${PLAN[k].name}</button>`).join("")}</div>`;
+    <div class="metarow"><span class="meta">${L ? `约 ${P.mins} 分钟　${L.length} 个动作` : id === "rest" ? "今天不练" : "做完打个勾"}</span><button class="link" data-act="pick">${picking ? "收起" : "练别的 ›"}</button></div>`;
+  if (picking) h += `<div class="chips">${pickList(now).map(k => `<button data-act="sel" data-sid="${k}"${k === id ? ' aria-pressed="true"' : ""}>${PLAN[k].name}</button>`).join("")}</div>`;
 
   if (P.cardio){
     h += `<div class="lbl">今天</div><div class="wus"><button class="warmup${e?.cardio ? " done" : ""}" data-act="cardio" data-key="cardio"><span class="one">${P.cardio}</span><span class="tick">${CHECK}</span></button></div>`;
-  } else if (!P.ex){
-    const tomorrow = PLAN[BY_DAY[(now.getDay()+1) % 7]].name;
+  } else if (!L){
+    const tm = new Date(now); tm.setDate(tm.getDate()+1);
+    const tomorrow = PLAN[dayMap(tm)[tm.getDay()]].name;
     h += `<p class="soon">今天休息，吃好睡好。明天${tomorrow}。</p>`;
   } else {
     h += `<div class="lbl">热身</div><div class="wus">${P.warm.map((t,i) => `<button class="warmup${e?.wu?.[i] ? " done" : ""}" data-act="wu" data-i="${i}" data-key="wu${i}"><span class="one">${t}</span><span class="tick">${CHECK}</span></button>`).join("")}</div>`;
     h += `<div class="lbl">动作</div>`;
-    const xs = P.ex.map(ex => getX(ex, false));
+    const xs = L.map(ex => getX(ex, false));
     if (openIdx === null){ openIdx = xs.findIndex(x => x.sets.filter(s => s.done).length < dims(x).s); }
-    P.ex.forEach((ex, i) => {
+    L.forEach((ex, i) => {
       const x = xs[i], d = dims(x), done = x.sets.filter(s => s.done).length, fin = done >= d.s;
       const est = !x.swap && !ex.main && !ex.bw && hist(ex.id, today, true).length === 0;
       const sub = x.swap ? "今天换成了这个，不算进度" : lastLine(ex, today);
       h += `<div class="ex${fin ? " fin" : ""}">
         <button class="exh" data-act="open" data-i="${i}">
           <span class="n one">${x.swap ? x.swap.n : ex.n}</span>
-          <span class="s">${fmtW(d.w)} × ${d.r} × ${d.s}${est ? '<em class="est">估</em>' : ""}</span>
+          <span class="s">${fmtW(d.w)} × ${rep(ex, d.r)} × ${d.s}${est ? '<em class="est">估</em>' : ""}</span>
         </button>${sub ? `<div class="last one">${sub}</div>` : ""}`;
       if (openIdx === i){
         h += `<div class="exb">`;
@@ -168,7 +220,7 @@ function draw(){
         }
         x.sets.forEach((s, j) => {
           const ed = editing && editing.i === i && editing.j === j;
-          h += `<div class="set${s.done ? " done" : ""}"><button class="w" data-act="edit" data-i="${i}" data-j="${j}">${fmtW(s.w)} × ${s.r}<span class="pen">${ed ? "收起" : "改"}</span></button><button class="tick" data-act="set" data-i="${i}" data-j="${j}" data-key="s${i}-${j}" aria-label="完成">${CHECK}</button></div>`;
+          h += `<div class="set${s.done ? " done" : ""}"><button class="w" data-act="edit" data-i="${i}" data-j="${j}">${fmtW(s.w)} × ${rep(ex, s.r)}<span class="pen">${ed ? "收起" : "改"}</span></button><button class="tick" data-act="set" data-i="${i}" data-j="${j}" data-key="s${i}-${j}" aria-label="完成">${CHECK}</button></div>`;
           if (ed) h += `<div class="ed">
             <span>重量</span><button data-act="w-" data-i="${i}" data-j="${j}" aria-label="减重量">−</button><b>${fmtW(s.w)}</b><button data-act="w+" data-i="${i}" data-j="${j}" aria-label="加重量">＋</button>
             <span>次数</span><button data-act="r-" data-i="${i}" data-j="${j}" aria-label="减次数">−</button><b>${s.r}</b><button data-act="r+" data-i="${i}" data-j="${j}" aria-label="加次数">＋</button></div>`;
@@ -183,6 +235,7 @@ function draw(){
     const all = xs.every(x => x.sets.filter(s => s.done).length >= dims(x).s);
     if (all) h += `<p class="soon">今天练完了。蛋白粉兑牛奶，别忘了。</p>`;
   }
+  h += `<button class="link copy" data-act="copy">复制最近 7 天记录 ›</button>`;
   h += `</section>`;
   root.innerHTML = h;
   if (popKey){ const el = root.querySelector(`[data-key="${popKey}"]`); const t = el?.classList.contains("tick") ? el : el?.querySelector(".tick"); if (t){ t.classList.remove("pop"); void t.offsetWidth; t.classList.add("pop"); } popKey = null; }
@@ -191,7 +244,7 @@ function draw(){
 function onClick(ev){
   const b = ev.target.closest("[data-act]"); if (!b || !root.contains(b)) return;
   const act = b.dataset.act, i = +b.dataset.i, j = +b.dataset.j;
-  const P = PLAN[sid()], ex = P.ex?.[i];
+  const L = exs(), ex = L?.[i];
   let save = false;
   switch (act){
     case "pick": picking = !picking; break;
@@ -207,9 +260,9 @@ function onClick(ev){
         const d = dims(x), left = x.sets.findIndex(z => !z.done), name = x.swap ? x.swap.n : ex.n;
         if (left >= 0) startTimer(ex.rest, `${name}　第 ${left+1} 组`);
         else {
-          const xs = P.ex.map(e2 => getX(e2, false));
+          const xs = L.map(e2 => getX(e2, false));
           const nx = xs.findIndex((z, k) => k > i && z.sets.filter(q => q.done).length < dims(z).s);
-          if (nx >= 0){ startTimer(ex.rest, (xs[nx].swap ? xs[nx].swap.n : P.ex[nx].n)); setTimeout(() => { openIdx = nx; draw(); }, 450); }
+          if (nx >= 0){ startTimer(ex.rest, (xs[nx].swap ? xs[nx].swap.n : L[nx].n)); setTimeout(() => { openIdx = nx; draw(); }, 450); }
           else stopTimer();
         }
         void d;
@@ -223,7 +276,8 @@ function onClick(ev){
       for (let k = j; k < x.sets.length; k++) if (k === j || !x.sets[k].done) x.sets[k].w = nw;
       save = true; break;
     }
-    case "r+": case "r-": { const x = getX(ex, true), s = x.sets[j]; s.r = Math.max(0, s.r + (act === "r+" ? 1 : -1)); save = true; break; }
+    case "r+": case "r-": { const x = getX(ex, true), s = x.sets[j], st = ex.rs || 1; s.r = Math.max(0, s.r + (act === "r+" ? st : -st)); save = true; break; }
+    case "copy": copyWeek(); break;
     case "showalt": showAlt[i] = true; break;
     case "alt": {
       const x = getX(ex, true), a = ex.alt[+b.dataset.k];
@@ -240,8 +294,8 @@ function onClick(ev){
   draw();
 }
 
-export function renderTrain(view){
-  onPage = true;
+export function renderTrain(view, opts = {}){
+  onPage = true; if (opts.toast) toastFn = opts.toast;
   root = view; root.onclick = onClick;
   draw();
   if (timerEl) timerEl.hidden = !(tRunning || timerEl.classList.contains("end"));

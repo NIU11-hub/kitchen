@@ -186,6 +186,7 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-off
 .ent .d{font-family:var(--ui);font-size:11px;color:var(--mu);font-variant-numeric:tabular-nums}
 .ent .n small{font-family:var(--ui);font-size:11px;color:var(--mu);margin-left:8px}
 .ent .a{font-family:var(--ui);font-variant-numeric:tabular-nums}
+.train .copy{display:block;margin:44px 0 8px}
 .lbl .link{margin-left:8px;letter-spacing:.06em}
 .fab{position:absolute;right:22px;bottom:calc(env(safe-area-inset-bottom,0px) + 74px);z-index:4;background:var(--fg);color:var(--bg);font-family:var(--ui);font-size:14px;letter-spacing:.1em;padding:12px 20px;border-radius:999px;box-shadow:0 6px 18px rgba(58,57,53,.18)}
 .money{padding-bottom:70px}
