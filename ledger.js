@@ -7,7 +7,7 @@ import { generate, week, entryFor } from "./menu.js";
 
 export const L = () => store.docs.ledger;
 const save = () => saveDoc("ledger");
-const INBOX_V = 20261013;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
+const INBOX_V = 20261018;   // inbox.json 支持的功能版本：加新字段时调大，并在用到的批次里写 minV
 
 /* ---------- 旧数据升级到新分类（只跑一次） ---------- */
 export function migrateLedger() {
@@ -465,7 +465,8 @@ async function applyInboxOnce() {
       o.paid = true; o.xid = x.id; paid.push(o.n);
     }
     // del：删掉记错的某一笔 [{d, a, n}]（日期、金额对上，备注包含 n）
-    for (const o of b.del || []) for (const x of L().E.filter(z => z.date === o.d && Math.abs((+z.amount || 0) - (+o.a || 0)) < 0.005 && (z.note || "").includes(o.n))) removeEntry(x.id, true);
+    // any: true 不看金额（储蓄罐付的可能拆成罐里和手上两笔）
+    for (const o of b.del || []) for (const x of L().E.filter(z => z.date === o.d && (o.any || Math.abs((+z.amount || 0) - (+o.a || 0)) < 0.005) && (z.note || "").includes(o.n))) removeEntry(x.id, true);
     // ones：已经付了的一次性大额 [{d, a, n, spread: {start, months, plan}}]
     for (const o of b.ones || []) {
       const x = addEntry({ date: o.d, amount: +o.a || 0, cat: "__one", note: o.n, meta: { ib: b.id } });
