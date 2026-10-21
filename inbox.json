@@ -2242,6 +2242,18 @@
      "lock": true
     }
    ]
+  },
+  {
+   "id": "2026-10-21-soup",
+   "set": [
+    {
+     "d": "2026-10-21",
+     "k": "d",
+     "r": "cl-tofu-beef-soup",
+     "lock": true,
+     "rice": 250
+    }
+   ]
   }
  ]
 }
